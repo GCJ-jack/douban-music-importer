@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Douban Music Importer</title>
+    <link rel="stylesheet" href="./popup.css">
+  </head>
+  <body>
+    <main class="popup">
+      <header>
+        <h1>豆瓣音乐导入助手</h1>
+        <p id="status" class="status">正在检测当前页面…</p>
+      </header>
+
+      <dl class="facts">
+        <div>
+          <dt>页面状态</dt>
+          <dd id="page-support">检测中</dd>
+        </div>
+        <div>
+          <dt>Release ID</dt>
+          <dd id="release-id">-</dd>
+        </div>
+        <div>
+          <dt>API 状态</dt>
+          <dd id="api-status">未请求</dd>
+        </div>
+      </dl>
+
+      <button id="import-button" type="button" disabled>获取 Discogs 元数据</button>
+
+      <section class="result" aria-live="polite">
+        <p id="result-message"></p>
+      </section>
+    </main>
+
+    <script type="module" src="./popup.js"></script>
+  </body>
+</html>

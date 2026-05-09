@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Douban Music Importer",
+  "version": "0.1.0",
+  "description": "Generate reviewable Douban Music import source metadata from the current Discogs release page.",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": [
+    "https://www.discogs.com/*",
+    "https://discogs.com/*",
+    "https://api.discogs.com/*"
+  ],
+  "background": {
+    "service_worker": "src/background/service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_title": "Douban Music Importer"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.discogs.com/*",
+        "https://discogs.com/*"
+      ],
+      "js": ["src/content/discogs-page-detector.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

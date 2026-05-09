@@ -6,9 +6,9 @@
 
 ## 当前状态
 
-Planning / pre-alpha。
+Pre-alpha。
 
-目前还没有可用的扩展版本。当前重点是明确 v0.1 MVP、技术架构、安全边界和长期维护方向。
+目前已有 v0.1 第一批浏览器扩展骨架，可在 Chrome 开发者模式中本地加载。当前实现只覆盖 Discogs release 页面检测、`release_id` 解析、单个 Discogs release API 请求和 raw source metadata 本地保存；尚未实现 review UI、豆瓣草稿映射或豆瓣填表。
 
 详细规划见：[docs/mvp-spec.md](docs/mvp-spec.md)。
 
@@ -54,12 +54,35 @@ Discogs 数据只作为草稿来源。写入豆瓣前，所有字段都必须展
 
 v0.1 会尽量使用最小权限。
 
+当前 Manifest 使用：
+
+- `storage`：保存当前导入的 raw source metadata。
+- `activeTab`：用户打开 popup 时读取当前活动页 URL。
+- 明确 host permissions：`discogs.com` / `www.discogs.com` / `api.discogs.com`。
+
 Manifest 不应申请：
 
 - `cookies`
 - `<all_urls>`
 - `webRequest`
 - `tabs`，除非未来有明确需求
+
+## 本地加载与验证
+
+Chrome 本地加载：
+
+1. 打开 `chrome://extensions/`。
+2. 开启 Developer mode。
+3. 点击 Load unpacked。
+4. 选择本仓库根目录。
+5. 打开 Discogs release 页面，例如 `https://www.discogs.com/release/123456-Artist-Album`。
+6. 点击扩展 popup，确认 release_id 检测结果，再手动点击“获取 Discogs 元数据”。
+
+本地校验：
+
+```bash
+npm test
+```
 
 ## 开发路线
 
