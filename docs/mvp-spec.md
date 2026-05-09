@@ -1,125 +1,89 @@
-# douban-music-importer MVP Spec
+# douban-music-importer v0.1 MVP Spec
 
-This document is the project north star for the MVP. Product decisions,
-implementation tasks, reviews, documentation, and future roadmap work should
-align with it unless a later decision record explicitly changes the direction.
+本文档是 `douban-music-importer` v0.1 的执行基线。后续实现、拆 issue、review、README 和路线图更新都应与本文档保持一致，除非有新的决策记录明确修改方向。
 
-## 1. Project Goal
+## 1. 项目目标
 
-`douban-music-importer` is a browser extension that helps users import music
-album or release metadata from Discogs, Rate Your Music (RYM), and Album of the
-Year (AOTY), then assists with filling the Douban Music new-subject form.
+`douban-music-importer` 是一个浏览器扩展项目，用于帮助用户从外部音乐资料库导入音乐专辑或发行版本元数据，并辅助填写豆瓣音乐新条目表单。
 
-The MVP focuses on Discogs release pages. The extension should improve metadata
-entry efficiency and quality, while keeping the user fully responsible for
-checking, editing, and submitting the Douban entry.
+v0.1 只聚焦一个主流程：用户从 Discogs release 页面启动插件，插件基于当前 release URL 调用 Discogs 官方 API 获取公开元数据，生成可审阅草稿，用户检查和编辑后，在已经打开的豆瓣音乐新条目表单上辅助填写，最后由用户自行提交。
 
-The project is intended to be maintained as a long-term GitHub open source
-project, with clear boundaries, conservative permissions, testable metadata
-mapping, and contribution-friendly documentation.
+项目定位是“辅助录入”，不是自动发布、自动搬运或批量创建工具。
 
-## 2. MVP Scope
+## 2. v0.1 产品决策
 
-The MVP supports one primary workflow: importing metadata from a Discogs release
-page into a user-reviewable Douban Music draft, then assisting the user with
-filling the Douban Music new-subject form.
+v0.1 必须遵守以下产品和安全决策：
 
-MVP capabilities:
+1. 豆瓣新条目页面入口由用户自行进入。插件不负责寻找、打开或绕过新增入口；v0.1 只在用户已经打开豆瓣音乐新条目表单后工作。
+2. 豆瓣登录由用户自行完成。插件不负责登录、不读取 cookies、不处理验证码、不判断或绕过登录状态。如果用户未登录，豆瓣页面自行跳转登录，插件只提示用户先完成登录并打开新条目表单。
+3. Discogs 页面只是入口。v0.1 从当前 Discogs release URL 解析 `release_id`，并请求 Discogs 官方 API 获取公开元数据。
+4. Discogs API 只请求用户当前打开的 release，不批量请求、不后台爬取、不自动遍历 master/release 列表。
+5. Discogs 数据只作为草稿来源。写入豆瓣前，所有字段必须经过 review UI，用户可见、可编辑、可删除、可确认。
+6. 低置信度、无法映射、多值合并、格式转换或可能有歧义的字段默认标记为需要复核。
+7. v0.1 不自动上传封面图片。插件最多展示封面预览、展示来源封面 URL 或提供复制 URL 的能力；是否下载、上传或更换封面由用户自行决定。
+8. 豆瓣表单已有内容默认不覆盖。若目标字段已有值，必须用户确认后才允许覆盖。
+9. v0.1 不收集、不上传、不同步用户数据。草稿默认只保存在浏览器本地或 session storage 中。
+10. 不自动提交豆瓣条目，不绕过审核、限流或社区规则。
 
-- Detect supported Discogs release pages.
-- Extract core Discogs release metadata:
-  - release title
-  - release artists
-  - release date or year
-  - labels
-  - country or region
-  - media formats
-  - track list
-  - barcode
-  - catalog numbers
-  - cover image source URL
-  - Discogs source URL
-- Normalize the extracted metadata into an internal release model.
-- Map the internal release model into a Douban Music draft.
-- Show a review UI where users can inspect, edit, remove, and confirm fields.
-- Store the current import draft locally for the active import flow.
-- Detect the Douban Music new-subject form.
-- Fill supported Douban form fields only after explicit user confirmation.
-- Preserve source information and mark uncertain fields for review.
-- Avoid overwriting existing form input unless the user explicitly confirms it.
+## 3. v0.1 范围
 
-## 3. Non-Goals
+v0.1 支持：
 
-The MVP must not implement:
+- 识别 Discogs release 页面。
+- 从当前页面 URL 解析 `release_id`。
+- 用户主动触发后，请求 `GET https://api.discogs.com/releases/{release_id}`。
+- 处理 Discogs API 的成功、404、429、网络失败和字段缺失。
+- 从 Discogs API 数据生成内部 release metadata。
+- 从内部 metadata 生成豆瓣音乐草稿。
+- 展示 review UI。
+- 允许用户检查、编辑、删除、确认字段。
+- 默认以本地/session storage 保存当前导入草稿。
+- 检测用户已经打开的豆瓣音乐新条目表单。
+- 在用户确认后辅助填写支持字段。
+- 检测豆瓣表单已有值，并默认不覆盖。
+- 展示 Discogs 来源 URL 和必要 attribution。
 
-- Automatic Douban subject submission.
-- Batch creation of Douban subjects.
-- Automatic Douban login.
-- CAPTCHA handling.
-- Any bypass of login, CAPTCHA, review, rate limit, moderation, or community
-  rules.
-- Background bulk scraping of Douban or source sites.
-- RYM import support.
-- AOTY import support.
-- Complex duplicate detection.
-- Release-version merging.
-- Authoritative metadata arbitration across multiple sources.
-- A backend service.
-- User accounts.
-- Cloud sync.
+v0.1 不支持：
 
-RYM and AOTY are roadmap targets. The MVP should leave room for them in the
-architecture, but must not depend on implementing them.
+- RYM 导入。
+- AOTY 导入。
+- Discogs master 自动选择最佳 release。
+- 从 Discogs 页面 HTML 抓取核心元数据作为主路径。
+- 豆瓣重复条目自动检测。
+- 自动打开豆瓣新条目入口。
+- 自动登录豆瓣。
+- 读取 cookies。
+- 处理验证码。
+- 自动上传封面。
+- 自动提交豆瓣条目。
+- 批量导入或批量创建。
+- 后台爬取。
+- 后端服务、账号系统或云同步。
 
-## 4. Safety And Compliance Boundaries
+## 4. 用户流程
 
-The extension is an assisted data-entry tool. It must never behave like an
-automated publishing system.
+1. 用户打开 Discogs release 页面，例如 `https://www.discogs.com/release/123456-Artist-Album`。
+2. 插件识别当前页面是 Discogs release 页面。
+3. 插件从 URL 解析 `release_id = 123456`。
+4. 用户点击插件入口，例如“生成豆瓣草稿”。
+5. 插件请求 `https://api.discogs.com/releases/123456`。
+6. 插件将 API 数据标准化为内部 release metadata。
+7. 插件映射出 `DoubanMusicDraft`。
+8. 插件在 review UI 中展示所有将用于豆瓣的字段、来源、置信度和警告。
+9. 用户检查、编辑、删除并确认字段。
+10. 用户自行登录豆瓣，并自行打开豆瓣音乐新条目表单。
+11. 插件检测当前页面是否为可支持的新条目表单。
+12. 如果未检测到表单，插件只提示用户先完成登录并打开正确页面。
+13. 用户确认后，插件辅助填写支持字段。
+14. 如果目标字段已有内容，插件默认不覆盖；用户确认后才可覆盖。
+15. 插件不点击提交按钮。
+16. 用户在豆瓣页面人工检查并自行提交。
 
-Required boundaries:
+## 5. 技术架构
 
-- Users must be able to inspect, edit, and confirm every field before it is
-  written into the Douban form.
-- The extension may fill form fields only after explicit user action.
-- The extension must not click the Douban submit button.
-- The extension must not bypass login, CAPTCHA, review, rate limits, community
-  rules, or access controls.
-- The extension must not read or store cookies.
-- The extension must not infer or expose Douban login state.
-- The extension must not upload browsing data or imported metadata to a third
-  party service.
-- The extension must not run on unrelated sites.
-- Uncertain or lossy mappings must be marked as needing review.
-- Cover images should be represented by source URLs or user-facing references;
-  the extension should not redistribute copyrighted image files.
-- Failure states must be visible and understandable instead of silently filling
-  low-confidence data.
+v0.1 采用 Manifest V3 浏览器扩展。
 
-Permissions should be minimal. Avoid broad permissions such as `<all_urls>`,
-`cookies`, `webRequest`, and network interception unless a future decision
-record justifies them.
-
-## 5. Core User Flow
-
-1. The user opens a Discogs release page.
-2. The extension detects that the page is supported.
-3. The user triggers metadata extraction.
-4. The extension extracts and normalizes release metadata.
-5. The extension displays a reviewable draft with field sources, confidence,
-   and warnings.
-6. The user edits, removes, or confirms fields.
-7. The extension stores the reviewed draft locally.
-8. The user opens the Douban Music new-subject page.
-9. The extension detects the form and the existing import draft.
-10. The user reviews the draft again and confirms filling.
-11. The extension fills supported fields without submitting the form.
-12. The user manually checks, edits, and submits through Douban's normal flow.
-
-## 6. Technical Architecture
-
-Use a Manifest V3 browser extension.
-
-Recommended structure:
+推荐结构：
 
 ```text
 douban-music-importer/
@@ -128,14 +92,15 @@ douban-music-importer/
     background/
       service-worker
     content/
-      discogs-release-content
-      douban-music-form-content
+      discogs-page-detector
+      douban-form-assistant
     popup/
       popup-ui
     review/
       import-review-ui
     core/
-      extractors/
+      discogs-url-parser
+      discogs-api-client
       normalizers/
       mappers/
       schema/
@@ -145,128 +110,139 @@ douban-music-importer/
       settings-store
 ```
 
-Primary data flow:
+主数据流：
 
 ```text
 Discogs Release Page
-  -> Discogs Content Script
-  -> Discogs Extractor
+  -> parse release_id from current URL
+  -> user action
+  -> GET https://api.discogs.com/releases/{release_id}
+  -> Discogs API JSON
   -> AlbumReleaseMetadata
-  -> Douban Mapper
   -> DoubanMusicDraft
   -> Draft Store
-  -> Douban Music Form Page
   -> Review UI
   -> user confirmation
-  -> form fill
+  -> user opens Douban Music new-subject form
+  -> Douban Form Assistant
+  -> form fill after confirmation
   -> manual user submission
 ```
 
-Default storage strategy:
+## 6. 模块边界
 
-- Use session storage for the active import draft when available.
-- Use local storage only for explicit user-saved drafts or settings.
-- Do not persist imported metadata longer than needed without user intent.
+### Discogs Page Detector
 
-## 7. Module Boundaries
+职责：
 
-### Discogs Content Script
+- 只在 Discogs 页面上运行。
+- 判断当前 URL 是否为 v0.1 支持的 release 页面。
+- 从 URL 解析 `release_id`。
+- 提供用户主动触发导入的入口。
 
-Responsibilities:
+非职责：
 
-- Run only on supported Discogs release pages.
-- Read page data from the DOM, structured data, embedded state, or page URL.
-- Return source-specific raw metadata.
+- 不抓取 Discogs HTML 作为主数据源。
+- 不扫描页面内所有 release 链接。
+- 不批量收集 release。
+- 不直接操作豆瓣页面。
 
-Non-responsibilities:
+### Discogs API Client
 
-- Do not operate on Douban pages.
-- Do not decide Douban field mapping.
-- Do not write drafts directly into storage without passing through the core
-  pipeline.
+职责：
 
-### Extractor Layer
+- 根据单个 `release_id` 请求 Discogs 官方 API。
+- 请求目标仅限当前用户打开页面对应的 release。
+- 处理 404、429、网络失败、空响应和字段缺失。
+- 暴露 rate-limit 相关错误信息供 UI 提示。
 
-Responsibilities:
+非职责：
 
-- Provide source-specific extraction modules.
-- MVP module: Discogs release extractor.
-- Future modules: RYM extractor and AOTY extractor.
-- Output raw source metadata with source context.
+- 不后台爬取。
+- 不批量请求。
+- 不自动遍历 master/release 列表。
+- 不关心豆瓣字段。
 
-Non-responsibilities:
+### Release Normalizer
 
-- Do not know Douban form structure.
-- Do not perform user-facing field confidence decisions beyond extraction
-  evidence.
+职责：
 
-### Normalizer Layer
+- 将 Discogs API JSON 转换为内部 `AlbumReleaseMetadata`。
+- 保留来源 URL、API response 来源、字段 provenance 和 warnings。
+- 对 artist、date、label、format、identifier、tracklist 做最小规范化。
 
-Responsibilities:
+非职责：
 
-- Convert source-specific metadata into the shared internal release model.
-- Preserve provenance, raw source references, and warnings.
-- Normalize dates, artists, labels, formats, identifiers, and track lists.
+- 不做豆瓣表单 selector 判断。
+- 不直接写入页面。
+- 不为缺失字段做激进推断。
 
-Non-responsibilities:
+### Douban Draft Mapper
 
-- Do not write browser pages.
-- Do not submit data.
-- Do not make unsupported assumptions for missing fields.
+职责：
 
-### Douban Mapper
+- 将 `AlbumReleaseMetadata` 转换为 `DoubanMusicDraft`。
+- 输出建议填充值，而不是直接写入豆瓣。
+- 标记低置信度、无法映射、多值合并和格式转换字段。
+- 保留 unmapped 字段供用户查看。
 
-Responsibilities:
+非职责：
 
-- Convert `AlbumReleaseMetadata` into `DoubanMusicDraft`.
-- Format fields for Douban Music's new-subject form.
-- Mark uncertain mappings as `needsReview`.
-- Preserve unmapped data for user inspection.
-
-Non-responsibilities:
-
-- Do not interact with the page directly.
-- Do not submit the form.
-
-### Douban Content Script
-
-Responsibilities:
-
-- Run only on supported Douban Music new-subject pages.
-- Detect supported form fields.
-- Show or connect to the review UI.
-- Fill fields only after explicit user confirmation.
-- Warn before overwriting existing user input.
-
-Non-responsibilities:
-
-- Do not click submit.
-- Do not bypass validation, login, CAPTCHA, moderation, or rate limits.
-- Do not inspect cookies or account state.
+- 不操作 DOM。
+- 不提交表单。
 
 ### Review UI
 
-Responsibilities:
+职责：
 
-- Show extracted and mapped fields.
-- Show source URLs, confidence, and warnings.
-- Allow users to edit, remove, and confirm fields.
-- Provide a clear action to fill the Douban form.
-- Keep low-confidence or lossy mappings visible.
+- 展示所有将进入豆瓣草稿的字段。
+- 展示来源、置信度、warnings 和 `needsReview`。
+- 允许用户编辑、删除、确认字段。
+- 展示或复制封面 URL，但不上传封面。
+- 展示 Discogs 来源 URL 和 attribution。
+
+非职责：
+
+- 不自动写入豆瓣。
+- 不隐藏低置信度字段。
 
 ### Draft Store
 
-Responsibilities:
+职责：
 
-- Store the active import draft for the current workflow.
-- Support explicit user-saved drafts later if needed.
-- Avoid long-term persistence by default.
+- 保存当前导入流程的草稿。
+- 默认使用浏览器本地/session storage。
+- 不上传、不同步、不发送到第三方服务。
 
-## 8. Data Structure Design
+非职责：
 
-The internal model should represent a music release, not only a generic album.
-This matches the Discogs MVP source object and leaves room for release-specific
-metadata such as country, format, catalog number, and barcode.
+- 不做云同步。
+- 不长期保存导入历史，除非未来用户明确选择保存。
+
+### Douban Form Assistant
+
+职责：
+
+- 只在用户已经打开的豆瓣音乐新条目表单上工作。
+- 检测当前 DOM 是否为支持的表单。
+- 在用户确认后辅助填写支持字段。
+- 写入前检查目标字段是否已有内容。
+- 已有内容默认不覆盖；覆盖必须用户确认。
+- 当前页面不是目标表单时，只提示用户打开正确页面。
+
+非职责：
+
+- 不寻找或打开豆瓣新条目入口。
+- 不负责登录。
+- 不读取 cookies。
+- 不判断登录状态。
+- 不处理验证码。
+- 不绕过审核、限流或社区规则。
+- 不点击提交按钮。
+
+## 7. 数据结构设计
+
+内部模型以 release 为核心，因为 v0.1 主数据源是 Discogs release API。
 
 ```ts
 type AlbumReleaseMetadata = {
@@ -274,12 +250,9 @@ type AlbumReleaseMetadata = {
   source: SourceInfo;
   release: {
     title: string;
-    subtitle?: string;
     displayTitle?: string;
     artists: ArtistCredit[];
-    releaseArtistsText?: string;
     releaseDate?: DatePrecision;
-    originalReleaseDate?: DatePrecision;
     country?: string;
     labels: LabelCredit[];
     companies?: CompanyCredit[];
@@ -302,10 +275,11 @@ type AlbumReleaseMetadata = {
 
 ```ts
 type SourceInfo = {
-  provider: "discogs" | "rym" | "aoty";
-  sourceType: "release" | "master" | "album" | "review-page";
+  provider: "discogs";
+  sourceType: "release";
   url: string;
-  id?: string;
+  id: string;
+  apiUrl: string;
   fetchedAt: string;
   extractorVersion: string;
 };
@@ -390,13 +364,13 @@ type Credit = {
 type ImageRef = {
   url: string;
   kind: "cover" | "back" | "media" | "other";
-  source: "page" | "api" | "user";
+  source: "api" | "user";
 };
 ```
 
 ```ts
 type ExternalUrl = {
-  provider: "discogs" | "rym" | "aoty" | "official" | "other";
+  provider: "discogs" | "official" | "other";
   url: string;
 };
 ```
@@ -409,13 +383,13 @@ type ImportWarning = {
 };
 ```
 
-The Douban draft model is separate from the internal metadata model. It
-represents fillable form intent, not the source of truth.
+豆瓣草稿模型独立于内部 release metadata。它表示“建议填写意图”，不是来源事实本身。
 
 ```ts
 type DoubanMusicDraft = {
   schemaVersion: "0.1";
   sourceUrl: string;
+  attribution: string;
   fields: {
     title?: DraftField<string>;
     originalTitle?: DraftField<string>;
@@ -453,40 +427,39 @@ type UnmappedField = {
 };
 ```
 
-## 9. Field Priority
+## 8. 字段优先级
 
-High-priority MVP fields:
+高优先级：
 
-- Release title.
-- Release artists.
-- Release date or year.
-- Labels.
-- Media formats.
-- Track list.
-- Cover image source URL.
-- Discogs source URL.
+- Release title。
+- Release artists。
+- Release date 或 year。
+- Labels。
+- Media formats。
+- Tracklist。
+- Barcode。
+- Catalog numbers。
+- Discogs source URL。
 
-Medium-priority MVP fields:
+中优先级：
 
-- Country or region.
-- Genres and styles.
-- Barcode.
-- Catalog numbers.
-- Release notes.
+- Country / region。
+- Genres / styles。
+- Release notes。
+- Cover image URL，仅展示或复制，不自动上传。
 
-Low-priority fields:
+低优先级：
 
-- Complete credits.
-- Company credits.
-- Matrix or runout identifiers.
-- Detailed release-version differences.
+- Complete credits。
+- Company credits。
+- Matrix / runout identifiers。
+- Detailed release-version differences。
 
-Low-priority fields may be preserved as unmapped metadata or notes, but should
-not block the MVP.
+低优先级字段默认进入 unmapped、notes 或 review-only 区域，不应阻塞 v0.1。
 
-## 10. Permission Strategy
+## 9. 权限策略
 
-Recommended MVP permissions:
+推荐 v0.1 权限：
 
 ```json
 {
@@ -494,149 +467,154 @@ Recommended MVP permissions:
   "host_permissions": [
     "https://www.discogs.com/*",
     "https://discogs.com/*",
+    "https://api.discogs.com/*",
     "https://music.douban.com/*"
   ]
 }
 ```
 
-Host permissions should be narrowed later once exact supported URL patterns are
-confirmed.
+说明：
 
-Avoid:
+- `https://www.discogs.com/*` / `https://discogs.com/*` 用于识别用户当前打开的 Discogs release 页面。
+- `https://api.discogs.com/*` 用于请求当前 release_id 对应的官方 API 数据。
+- `https://music.douban.com/*` 用于在用户已打开的豆瓣音乐新条目表单上辅助填写。
+- `storage` 仅用于本地/session 草稿或未来明确的用户设置。
 
-- `<all_urls>`
+Manifest 不应申请：
+
 - `cookies`
+- `<all_urls>`
 - `webRequest`
 - `declarativeNetRequest`
+- `tabs`，除非未来有明确需求
 - broad background network access
 
-Potential content-script URL patterns to verify during implementation:
+候选 URL patterns：
 
 ```text
 Discogs:
   https://www.discogs.com/release/*
   https://www.discogs.com/*/release/*
 
+Discogs API:
+  https://api.discogs.com/releases/*
+
 Douban:
   https://music.douban.com/new_subject*
-  https://music.douban.com/subject_create*
 ```
 
-The Douban URL patterns are open questions until confirmed against the real
-form.
+`https://music.douban.com/subject_create*` 当前未确认，不能作为 v0.1 已确认目标。
 
-## 11. MVP Milestones
+## 10. v0.1 里程碑
 
-### v0.1
+### v0.1.0
 
-- Create the Manifest V3 extension skeleton.
-- Detect supported Discogs release pages.
-- Extract high-priority Discogs metadata.
-- Normalize metadata into `AlbumReleaseMetadata`.
-- Map metadata into `DoubanMusicDraft`.
-- Provide a review UI for imported fields.
-- Fill the Douban Music new-subject form after user confirmation.
-- Protect existing form input from accidental overwrite.
-- Establish 5 to 10 Discogs regression fixtures.
-- Add README, contribution, roadmap, changelog, issue template, and PR template
-  foundations.
+- 更新 README 和 MVP spec，使其与 API-first、安全边界一致。
+- 创建 Manifest V3 扩展骨架。
+- 实现 Discogs release URL detection。
+- 实现 `release_id` parser。
+- 实现 Discogs API client。
+- 实现 API 错误和 rate-limit 提示。
+- 定义 `AlbumReleaseMetadata` 和 `DoubanMusicDraft`。
+- 实现 Discogs API response normalizer。
+- 实现 Douban draft mapper。
+- 实现 review UI。
+- 实现本地/session draft store。
+- 登录后人工确认豆瓣新条目表单字段。
+- 实现 Douban form assistant。
+- 实现 no-overwrite 行为。
+- 建立 8-10 个 Discogs API fixture。
+- 建立 v0.1 release gate。
 
 ### v0.2
 
-- Improve Discogs release compatibility.
-- Improve multi-disc, multi-format, multi-label, and multi-catalog-number
-  handling.
-- Add stronger extraction and mapping tests.
-- Improve error messages and low-confidence field warnings.
+- 增强 Discogs API 数据兼容性。
+- 改进多碟、多格式、多厂牌、多 catalog number 处理。
+- 改进错误提示和字段映射说明。
 
 ### v0.3
 
-- Support Discogs master pages as an assisted path to choose a specific release.
-- Improve draft persistence and review UX.
-- Add a release checklist and changelog workflow.
+- 改进草稿体验。
+- 探索 Discogs master 到 release 的辅助选择。
 
 ### v0.4
 
-- Research and prototype RYM album-page import.
-- Confirm RYM fields, constraints, and service-boundary risks.
-- Add cross-site fixture candidates.
+- 调研并原型支持 RYM。
 
 ### v0.5
 
-- Research and prototype AOTY album-page import.
-- Confirm AOTY fields, constraints, and service-boundary risks.
-- Add source-priority and source-selection UX only if needed.
+- 调研并原型支持 AOTY。
 
 ### v1.0
 
-- Stabilize the Discogs release to Douban new-subject workflow.
-- Support at least one additional source at usable quality, or explicitly
-  defer it with documented rationale.
-- Maintain a stable regression fixture set.
-- Provide clear privacy, permission, contribution, and release documentation.
+- 稳定 Discogs release 到豆瓣新条目辅助填写主流程。
+- 完善测试、隐私权限文档、贡献流程和发布流程。
 
-## 12. QA And Maintenance Requirements
+## 11. QA 与验收标准
 
-MVP test scenarios:
+v0.1 必须满足：
 
-- Load the extension in a Chromium browser without manifest errors.
-- Open a supported Discogs release page and detect it as importable.
-- Open Discogs master, artist, label, and unrelated pages without misleading
-  import actions.
-- Extract title, artists, date, labels, country, formats, identifiers, and
-  tracks from a standard Discogs release.
-- Preserve special characters, CJK text, accents, punctuation, and parentheses.
-- Handle multiple artists, `Various`, artist name variations, and featured
-  artists conservatively.
-- Preserve multi-label and multi-catalog-number data without silent loss.
-- Render multi-disc and side-based vinyl track lists in stable order.
-- Keep working when optional fields are missing.
-- Detect a Douban Music new-subject form.
-- Fill fields only after user confirmation.
-- Warn before overwriting existing form values.
-- Avoid running on unrelated sites.
-- Show understandable errors when extraction or form detection fails.
+- 只在 Discogs release 页面提供导入入口。
+- 能从当前 URL 稳定解析 `release_id`。
+- Discogs API 请求只针对当前页面对应的单个 release。
+- 不批量请求 Discogs API。
+- 不后台爬取。
+- API 404、429、网络失败、字段缺失都有明确错误。
+- 所有 Discogs 数据先进入 review UI。
+- 用户确认前不写入豆瓣表单。
+- 每个低置信度、无法映射、多值合并或格式转换字段标记 `needsReview`。
+- 用户可以编辑、删除、确认所有 draft 字段。
+- 封面不自动下载、不自动上传、不自动替换。
+- 封面最多展示预览、展示来源 URL 或复制 URL。
+- 豆瓣新条目页面由用户自行打开。
+- 豆瓣登录由用户自行完成。
+- 插件不读取 cookies。
+- 插件不处理验证码。
+- 插件不判断登录状态。
+- 当前页面不是豆瓣新条目表单时，只提示用户打开正确页面。
+- 豆瓣目标字段已有值时默认不覆盖。
+- 覆盖已有值必须由用户确认。
+- 插件不点击提交按钮。
+- 草稿默认只保存在浏览器本地/session storage。
+- 不收集、不上传、不同步用户数据。
+- Manifest 不包含 `cookies`、`<all_urls>`、`webRequest`。
+- 除非未来有明确需求，Manifest 不包含 `tabs`。
 
-Recommended MVP fixtures:
+推荐 fixture 类型：
 
-- A standard Western CD release.
-- A vinyl release with side A and side B.
-- A multi-artist compilation.
-- A Japanese release with Japanese text.
-- A multi-disc or box-set release.
-- A release with incomplete Discogs data.
-- A release with special characters, remix titles, or featured artists.
+- 标准欧美 CD release。
+- 黑胶 A/B 面 release。
+- 多碟或 box set。
+- Various Artists 合辑。
+- 日本发行或 CJK 文本 release。
+- 多 label / 多 catalog number release。
+- 缺失 barcode、完整日期、封面或曲目的 release。
+- 特殊字符、重音字符、括号、斜杠、remix title release。
+- Discogs API 404 / 429 / 网络失败模拟。
+- 豆瓣表单已有输入场景。
 
-Maintenance rules:
+## 12. 文档与开源维护
 
-- Every real parsing bug should become a fixture or regression test.
-- Fixing the Discogs-to-Douban main path has higher priority than adding new
-  source sites.
-- Permission expansion must be reviewed as a product and privacy decision, not
-  only as an implementation detail.
-- Mapping changes must be conservative and visible to users.
+README 应保持简洁，面向第一次打开 repo 的 GitHub 访问者。
 
-## 13. README And Open Source Maintenance
+MVP spec 应保留详细执行规划，包括：
 
-README should eventually include:
+- 产品边界。
+- 安全边界。
+- 技术架构。
+- 模块边界。
+- 数据结构。
+- 权限策略。
+- QA 和验收标准。
 
-- Project introduction.
-- Current project status.
-- Supported and planned sources.
-- What the extension will not do.
-- Installation instructions.
-- Usage instructions.
-- Field mapping overview.
-- Privacy and permission explanation.
-- Known limitations.
-- Development and testing instructions.
-- Contribution entry point.
-- Roadmap.
-- License.
+后续建议新增：
 
-Recommended repository documents:
-
-- `README.md`
+- `docs/research-discogs-api.md`
+- `docs/research-douban-form.md`
+- `docs/field-mapping.md`
+- `docs/privacy-and-permissions.md`
+- `docs/qa-plan-v0.1.md`
+- `docs/fixtures.md`
 - `CONTRIBUTING.md`
 - `ROADMAP.md`
 - `CHANGELOG.md`
@@ -646,49 +624,49 @@ Recommended repository documents:
 - `.github/ISSUE_TEMPLATE/site_compatibility.md`
 - `.github/pull_request_template.md`
 
-Issue templates should collect source URLs, browser and extension versions,
-actual versus expected results, screenshots or recordings, console errors, and
-whether the example should become a regression fixture.
+## 13. 风险与开放问题
 
-## 14. Risks And Open Questions
+开放问题：
 
-Open questions:
+- 豆瓣登录后的真实新条目表单 URL 是否稳定为 `https://music.douban.com/new_subject`。
+- 豆瓣表单真实字段 name、id、label、required、校验规则是什么。
+- 豆瓣封面是否支持 URL，还是只能用户手动上传。
+- 豆瓣是否有适合写 Discogs source URL / attribution 的字段。
+- Discogs API v0.1 是否需要用户配置 token，还是无 token 请求足够。
+- Discogs API fixture 保存完整 JSON 还是裁剪后的稳定 snapshot。
 
-- What are the exact current Douban Music new-subject form URLs?
-- What are the real Douban form field names, labels, required fields, and
-  validation rules?
-- Does Douban support filling a cover image by URL, or must users upload it
-  manually?
-- Which Discogs page data source is most stable for MVP extraction: DOM,
-  JSON-LD, embedded application state, or API?
-- If the Discogs API is used later, what token, rate limit, and terms-of-use
-  requirements apply?
-- What fields can RYM pages expose reliably without login or restricted access?
-- What fields can AOTY pages expose reliably without login or restricted access?
-- What source-site terms, image rights, and Douban community rules should be
-  reflected in project docs?
+已知风险：
 
-Known risks:
+- Discogs API 限流。
+- Discogs API 字段结构变化。
+- Discogs release 与豆瓣音乐条目语义不完全一致。
+- 豆瓣表单 DOM 变化。
+- 多艺人、多厂牌、多版本、多语言字段容易误映射。
+- 用户可能过度信任导入结果。
+- Discogs 图片 URL 涉及版权、缓存和防盗链问题。
 
-- Douban form DOM changes may break filling.
-- Discogs page structure changes may break extraction.
-- Multi-language and multi-artist metadata may map poorly to Douban fields.
-- RYM and AOTY may have access restrictions or service-boundary concerns.
-- Users may overtrust imported metadata unless the UI clearly emphasizes manual
-  review.
+## 14. 决策记录
 
-## 15. Decision Record
+v0.1 初始决策：
 
-Initial MVP decisions:
-
-- The MVP supports Discogs release pages first.
-- The core internal object is a release, not a generic album.
-- RYM and AOTY are future sources, not MVP deliverables.
-- All automation stops at assisted form filling.
-- Users must inspect, edit, and confirm imported fields.
-- The extension must never submit a Douban entry.
-- Uncertain fields must be visible and marked for review.
-- No backend service is required for MVP.
-- Local/session storage is preferred for import drafts.
-- Stable Discogs-to-Douban behavior is more important than quickly adding new
-  source sites.
+- v0.1 支持 Discogs release 页面优先。
+- Discogs 页面只是入口，主数据源是 Discogs 官方 API。
+- `release_id` 来自用户当前打开的 Discogs release URL。
+- Discogs API 只请求当前 release，不批量请求、不后台爬取。
+- 核心内部对象是 release，不是泛化 album。
+- Discogs 数据只作为草稿来源。
+- 所有字段写入豆瓣前必须经过 review UI。
+- 低置信度或无法映射字段默认需要复核。
+- 豆瓣入口由用户自行进入。
+- 豆瓣登录由用户自行完成。
+- 插件不负责登录、不读取 cookies、不处理验证码、不判断登录状态。
+- 插件只在用户已打开的豆瓣音乐新条目表单上工作。
+- 豆瓣表单已有内容默认不覆盖，覆盖必须用户确认。
+- v0.1 不自动上传封面，只展示或复制封面 URL。
+- 草稿默认只保存在浏览器本地/session storage。
+- v0.1 不收集、不上传、不同步用户数据。
+- 插件不自动提交豆瓣条目。
+- 插件不绕过审核、限流或社区规则。
+- Manifest 不申请 `cookies`、`<all_urls>`、`webRequest`。
+- 除非未来有明确需求，否则 Manifest 不申请 `tabs`。
+- RYM 和 AOTY 是未来来源，不属于 v0.1。

@@ -1,67 +1,74 @@
 # douban-music-importer
 
-`douban-music-importer` is a browser extension project for helping users import
-music album or release metadata from external music databases and use it to fill
-Douban Music new-subject forms.
+`douban-music-importer` 是一个浏览器扩展项目，目标是帮助用户从外部音乐资料库导入音乐专辑或发行版本元数据，并辅助填写豆瓣音乐新条目表单。
 
-The goal is assisted data entry: the extension should make metadata collection
-and form filling easier, while keeping the user in control of review, editing,
-and final submission.
+项目定位是“辅助录入”，不是自动发布工具。用户始终负责检查、编辑和最终提交。
 
-## Status
+## 当前状态
 
-Planning / pre-alpha.
+Planning / pre-alpha。
 
-There is no usable extension build yet. The current project focus is defining
-the MVP, architecture, safety boundaries, and long-term maintenance direction.
+目前还没有可用的扩展版本。当前重点是明确 v0.1 MVP、技术架构、安全边界和长期维护方向。
 
-See the full MVP spec: [docs/mvp-spec.md](docs/mvp-spec.md).
+详细规划见：[docs/mvp-spec.md](docs/mvp-spec.md)。
 
-## MVP Focus
+## v0.1 MVP
 
-The first MVP will support Discogs release pages.
+v0.1 优先支持 Discogs release 页面。
 
-Planned MVP workflow:
+计划流程：
 
-1. Open a Discogs release page.
-2. Extract core release metadata, such as title, artists, release date, label,
-   format, track list, barcode, catalog number, cover source URL, and source
-   URL.
-3. Review and edit the imported draft in the extension.
-4. Open the Douban Music new-subject form.
-5. Fill supported fields only after explicit user confirmation.
-6. Manually review and submit through Douban's normal flow.
+1. 用户打开一个 Discogs release 页面。
+2. 插件从当前页面 URL 解析 `release_id`。
+3. 插件只针对当前 `release_id` 请求 Discogs 官方 API 获取公开元数据。
+4. 插件生成导入草稿，并在 review UI 中展示。
+5. 用户检查、编辑、删除并确认所有字段。
+6. 用户自行登录豆瓣，并自行打开豆瓣音乐新条目表单。
+7. 插件只在已打开的新条目表单上辅助填写。
+8. 用户在豆瓣页面人工检查并自行提交。
 
-RYM and AOTY support are future roadmap items, not part of the first MVP.
+RYM 和 AOTY 是后续路线图目标，不属于 v0.1。
 
-## Safety Boundaries
+## 安全边界
 
-This project will not:
+本项目不会：
 
-- Automatically submit Douban entries.
-- Batch-create Douban entries.
-- Log in to Douban for the user.
-- Handle or bypass CAPTCHA.
-- Bypass review, rate limits, moderation, community rules, or access controls.
-- Upload user browsing data or imported metadata to a third-party service.
+- 自动提交豆瓣条目。
+- 自动寻找、打开或绕过豆瓣新增条目入口。
+- 负责豆瓣登录。
+- 读取 cookies。
+- 判断或绕过登录状态。
+- 处理验证码。
+- 绕过审核、限流或社区规则。
+- 批量请求 Discogs API。
+- 后台爬取 Discogs 或豆瓣。
+- 自动上传封面图片。
+- 收集、上传或同步用户数据。
 
-Users must be able to inspect, edit, and confirm all fields before anything is
-written into the Douban form.
+Discogs 数据只作为草稿来源。写入豆瓣前，所有字段都必须展示给用户检查和编辑。豆瓣表单已有内容默认不覆盖，覆盖必须由用户确认。
 
-## Development Roadmap
+草稿默认只保存在浏览器本地或 session storage 中。
 
-- `v0.1`: Discogs release page import, reviewable draft, assisted Douban form
-  filling, basic fixtures and documentation.
-- `v0.2`: Better Discogs compatibility, stronger parsing tests, clearer error
-  handling.
-- `v0.3`: Discogs master-page assisted release selection and improved draft UX.
-- `v0.4`: Research and prototype RYM import.
-- `v0.5`: Research and prototype AOTY import.
-- `v1.0`: Stable main workflow, documented permissions and privacy model,
-  regression fixtures, and contributor workflow.
+## 权限原则
 
-## Contributing
+v0.1 会尽量使用最小权限。
 
-The project is not ready for broad feature contributions yet. Early discussion,
-metadata mapping examples, Discogs fixture candidates, and safety review are
-welcome once issue templates and contribution docs are added.
+Manifest 不应申请：
+
+- `cookies`
+- `<all_urls>`
+- `webRequest`
+- `tabs`，除非未来有明确需求
+
+## 开发路线
+
+- `v0.1`：Discogs release 页面入口、Discogs API 导入、草稿 review、豆瓣表单辅助填写、安全边界和基础测试。
+- `v0.2`：增强 Discogs 兼容性、字段映射和错误提示。
+- `v0.3`：改进草稿体验，探索 Discogs master 到 release 的辅助选择。
+- `v0.4`：调研并原型支持 RYM。
+- `v0.5`：调研并原型支持 AOTY。
+- `v1.0`：稳定主流程、完善文档、测试和贡献流程。
+
+## 贡献
+
+项目尚处于规划和 pre-alpha 阶段。当前最有价值的贡献是：字段映射讨论、Discogs fixture 候选、豆瓣表单结构确认、安全边界 review 和文档改进。
