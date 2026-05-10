@@ -2,7 +2,16 @@ import { fetchDiscogsRelease, DiscogsApiError } from "../core/discogs-api-client
 import { parseDiscogsReleaseUrl } from "../core/discogs-url-parser.js";
 import { mapReleaseToDoubanDraft } from "../core/mappers/douban-draft-mapper.js";
 import { normalizeDiscogsRelease } from "../core/normalizers/discogs-release-normalizer.js";
+import { createDraftReviewState } from "../core/review/draft-review-state.js";
 import { summarizeDraft, validateAlbumReleaseMetadata, validateDoubanMusicDraft } from "../core/validation/schema-validation.js";
+import {
+  clearDraftReviewState,
+  confirmDraftField,
+  getDraftReviewState,
+  removeDraftField,
+  saveDraftReviewState,
+  updateDraftField,
+} from "../storage/draft-store.js";
 import { getRawSourceMetadata, saveRawSourceMetadata } from "../storage/raw-source-store.js";
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -38,6 +47,42 @@ async function handleMessage(message) {
     return {
       ok: true,
       metadata: await getRawSourceMetadata(),
+    };
+  }
+
+  if (message.type === "GET_DRAFT_REVIEW_STATE") {
+    return {
+      ok: true,
+      reviewState: await getDraftReviewState(),
+    };
+  }
+
+  if (message.type === "UPDATE_DRAFT_FIELD") {
+    return {
+      ok: true,
+      reviewState: await updateDraftField(message.fieldName, String(message.value ?? "")),
+    };
+  }
+
+  if (message.type === "CONFIRM_DRAFT_FIELD") {
+    return {
+      ok: true,
+      reviewState: await confirmDraftField(message.fieldName),
+    };
+  }
+
+  if (message.type === "REMOVE_DRAFT_FIELD") {
+    return {
+      ok: true,
+      reviewState: await removeDraftField(message.fieldName),
+    };
+  }
+
+  if (message.type === "CLEAR_DRAFT_REVIEW_STATE") {
+    await clearDraftReviewState();
+    return {
+      ok: true,
+      reviewState: null,
     };
   }
 
@@ -78,6 +123,23 @@ async function importDiscogsRelease(url) {
   const metadataValidation = validateAlbumReleaseMetadata(normalizedMetadata);
   const draftValidation = validateDoubanMusicDraft(draft);
   const draftSummary = summarizeDraft(draft);
+  const reviewState = createDraftReviewState({
+    draft,
+    sourceSummary: {
+      provider: sourceMetadata.provider,
+      sourceType: sourceMetadata.sourceType,
+      releaseId: sourceMetadata.releaseId,
+      apiUrl: sourceMetadata.apiUrl,
+      fetchedAt: sourceMetadata.fetchedAt,
+      title: typeof sourceMetadata.raw.title === "string" ? sourceMetadata.raw.title : null,
+    },
+    warnings: normalizedMetadata.warnings,
+    validation: {
+      metadata: metadataValidation,
+      draft: draftValidation,
+    },
+  });
+  await saveDraftReviewState(reviewState);
 
   return {
     ok: true,

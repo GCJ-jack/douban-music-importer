@@ -33,6 +33,49 @@
       <section class="result" aria-live="polite">
         <p id="result-message"></p>
       </section>
+
+      <section id="draft-review" class="draft-review" hidden>
+        <header class="review-header">
+          <div>
+            <h2>草稿预览</h2>
+            <p>这是写入豆瓣前的草稿预览，不会自动发布或提交。</p>
+          </div>
+          <button id="clear-draft-button" class="secondary-button" type="button">清除</button>
+        </header>
+
+        <dl class="review-summary">
+          <div>
+            <dt>字段</dt>
+            <dd id="draft-field-count">0</dd>
+          </div>
+          <div>
+            <dt>已确认</dt>
+            <dd id="draft-confirmed-count">0</dd>
+          </div>
+          <div>
+            <dt>需复核</dt>
+            <dd id="draft-review-count">0</dd>
+          </div>
+          <div>
+            <dt>未映射</dt>
+            <dd id="draft-unmapped-count">0</dd>
+          </div>
+        </dl>
+
+        <p id="draft-source" class="source-line"></p>
+
+        <div id="draft-fields" class="draft-fields" aria-label="草稿字段"></div>
+
+        <details id="draft-warnings" class="review-details">
+          <summary>Warnings</summary>
+          <ul id="draft-warning-list"></ul>
+        </details>
+
+        <details id="draft-unmapped" class="review-details">
+          <summary>未映射数据</summary>
+          <ul id="draft-unmapped-list"></ul>
+        </details>
+      </section>
     </main>
 
     <script type="module" src="./popup.js"></script>
