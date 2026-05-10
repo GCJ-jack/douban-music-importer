@@ -72,7 +72,8 @@ async function importCurrentRelease() {
   elements.resultMessage.textContent = [
     `Release ${summary.releaseId} 获取成功。`,
     summary.title ? `标题：${summary.title}。` : "",
-    "原始 API 返回已保存到本地扩展存储，后续再进入 review / mapping 流程。",
+    `已生成豆瓣草稿摘要：${summary.draftFieldCount} 个字段，${summary.draftNeedsReviewCount} 个需复核，${summary.draftUnmappedCount} 个未映射，${summary.warningCount} 个 warning。`,
+    summary.normalizedValid && summary.draftValid ? "Schema 校验通过。" : "Schema 校验未通过，请检查导入数据。",
   ].filter(Boolean).join(" ");
   elements.importButton.disabled = false;
 }

@@ -1,5 +1,8 @@
 import { fetchDiscogsRelease, DiscogsApiError } from "../core/discogs-api-client.js";
 import { parseDiscogsReleaseUrl } from "../core/discogs-url-parser.js";
+import { mapReleaseToDoubanDraft } from "../core/mappers/douban-draft-mapper.js";
+import { normalizeDiscogsRelease } from "../core/normalizers/discogs-release-normalizer.js";
+import { summarizeDraft, validateAlbumReleaseMetadata, validateDoubanMusicDraft } from "../core/validation/schema-validation.js";
 import { getRawSourceMetadata, saveRawSourceMetadata } from "../storage/raw-source-store.js";
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -70,6 +73,12 @@ async function importDiscogsRelease(url) {
 
   await saveRawSourceMetadata(sourceMetadata);
 
+  const normalizedMetadata = normalizeDiscogsRelease(sourceMetadata);
+  const draft = mapReleaseToDoubanDraft(normalizedMetadata);
+  const metadataValidation = validateAlbumReleaseMetadata(normalizedMetadata);
+  const draftValidation = validateDoubanMusicDraft(draft);
+  const draftSummary = summarizeDraft(draft);
+
   return {
     ok: true,
     page,
@@ -80,6 +89,12 @@ async function importDiscogsRelease(url) {
       apiUrl: sourceMetadata.apiUrl,
       fetchedAt: sourceMetadata.fetchedAt,
       title: typeof sourceMetadata.raw.title === "string" ? sourceMetadata.raw.title : null,
+      normalizedValid: metadataValidation.ok,
+      draftValid: draftValidation.ok,
+      draftFieldCount: draftSummary.fieldCount,
+      draftNeedsReviewCount: draftSummary.needsReviewCount,
+      draftUnmappedCount: draftSummary.unmappedCount,
+      warningCount: normalizedMetadata.warnings.length,
     },
   };
 }
