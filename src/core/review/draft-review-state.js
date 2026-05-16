@@ -1,4 +1,18 @@
 export const DRAFT_REVIEW_STATE_SCHEMA_VERSION = "0.1";
+export const DOUBAN_FILLABLE_DRAFT_FIELDS = new Set([
+  "title",
+  "artists",
+  "releaseDate",
+  "publisher",
+  "discCount",
+  "discNumber",
+  "isrc",
+  "barcode",
+  "tracks",
+  "summary",
+  "externalLinks",
+  "reference",
+]);
 
 export function createDraftReviewState(options) {
   const now = options.now || new Date().toISOString();
@@ -47,6 +61,35 @@ export function listReviewFields(state) {
       field,
       review: state.fieldReview?.[name] || { confirmed: false, removed: false },
     }));
+}
+
+export function summarizeReviewReadiness(state) {
+  const fields = listReviewFields(state);
+  const fillableFields = fields.filter((item) => isFillableDraftField(item.name));
+  const confirmedFillableFields = fillableFields.filter((item) => item.review.confirmed);
+  const unconfirmedFillableFields = fillableFields.filter((item) => !item.review.confirmed);
+
+  return {
+    ready: fillableFields.length > 0 && unconfirmedFillableFields.length === 0,
+    fillableFieldCount: fillableFields.length,
+    confirmedFillableFieldCount: confirmedFillableFields.length,
+    unconfirmedFillableFieldCount: unconfirmedFillableFields.length,
+    unconfirmedFillableFields: unconfirmedFillableFields.map((item) => item.name),
+    unsupportedFieldCount: fields.length - fillableFields.length,
+    unsupportedFields: fields
+      .filter((item) => !isFillableDraftField(item.name))
+      .map((item) => item.name),
+  };
+}
+
+export function getFillableDraftFields(state) {
+  return listReviewFields(state)
+    .filter((item) => isFillableDraftField(item.name))
+    .filter((item) => item.review.confirmed)
+    .reduce((payload, item) => {
+      payload[item.name] = clone(item.field);
+      return payload;
+    }, {});
 }
 
 export function applyDraftFieldEdit(state, fieldName, value, options = {}) {
@@ -104,6 +147,10 @@ function isConfirmed(state, fieldName) {
 
 function isRemoved(state, fieldName) {
   return Boolean(state?.fieldReview?.[fieldName]?.removed);
+}
+
+function isFillableDraftField(fieldName) {
+  return DOUBAN_FILLABLE_DRAFT_FIELDS.has(fieldName);
 }
 
 function clone(value) {

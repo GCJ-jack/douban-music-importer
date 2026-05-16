@@ -2,7 +2,11 @@ import { fetchDiscogsRelease, DiscogsApiError } from "../core/discogs-api-client
 import { parseDiscogsReleaseUrl } from "../core/discogs-url-parser.js";
 import { mapReleaseToDoubanDraft } from "../core/mappers/douban-draft-mapper.js";
 import { normalizeDiscogsRelease } from "../core/normalizers/discogs-release-normalizer.js";
-import { createDraftReviewState } from "../core/review/draft-review-state.js";
+import {
+  createDraftReviewState,
+  getFillableDraftFields,
+  summarizeReviewReadiness,
+} from "../core/review/draft-review-state.js";
 import { summarizeDraft, validateAlbumReleaseMetadata, validateDoubanMusicDraft } from "../core/validation/schema-validation.js";
 import {
   clearDraftReviewState,
@@ -86,6 +90,19 @@ async function handleMessage(message) {
     };
   }
 
+  if (message.type === "REQUEST_DOUBAN_FILL_FROM_REVIEW_STATE") {
+    const reviewState = await getDraftReviewState();
+    const readiness = summarizeReviewReadiness(reviewState);
+    const fillPayload = getFillableDraftFields(reviewState);
+    return {
+      ok: false,
+      code: "not_implemented",
+      message: "Douban form filling is not implemented yet.",
+      readiness,
+      payloadSummary: summarizeFillPayload(fillPayload),
+    };
+  }
+
   return {
     ok: false,
     error: {
@@ -158,6 +175,13 @@ async function importDiscogsRelease(url) {
       draftUnmappedCount: draftSummary.unmappedCount,
       warningCount: normalizedMetadata.warnings.length,
     },
+  };
+}
+
+function summarizeFillPayload(fillPayload) {
+  return {
+    fieldCount: Object.keys(fillPayload).length,
+    fields: Object.keys(fillPayload),
   };
 }
 

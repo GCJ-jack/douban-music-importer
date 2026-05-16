@@ -1,5 +1,9 @@
 import { parseDiscogsReleaseUrl } from "../core/discogs-url-parser.js";
-import { listReviewFields, summarizeDraftReviewState } from "../core/review/draft-review-state.js";
+import {
+  listReviewFields,
+  summarizeDraftReviewState,
+  summarizeReviewReadiness,
+} from "../core/review/draft-review-state.js";
 
 const elements = {
   status: document.querySelector("#status"),
@@ -16,6 +20,9 @@ const elements = {
   draftUnmappedCount: document.querySelector("#draft-unmapped-count"),
   draftSource: document.querySelector("#draft-source"),
   draftFields: document.querySelector("#draft-fields"),
+  fillReadinessMessage: document.querySelector("#fill-readiness-message"),
+  fillHandoffButton: document.querySelector("#fill-handoff-button"),
+  fillPayloadSummary: document.querySelector("#fill-payload-summary"),
   draftWarnings: document.querySelector("#draft-warnings"),
   draftWarningList: document.querySelector("#draft-warning-list"),
   draftUnmapped: document.querySelector("#draft-unmapped"),
@@ -65,6 +72,12 @@ async function init() {
 
   elements.clearDraftButton.addEventListener("click", () => {
     clearDraft().catch((error) => {
+      elements.resultMessage.textContent = error instanceof Error ? error.message : String(error);
+    });
+  });
+
+  elements.fillHandoffButton.addEventListener("click", () => {
+    requestDoubanFillHandoff().catch((error) => {
       elements.resultMessage.textContent = error instanceof Error ? error.message : String(error);
     });
   });
@@ -131,6 +144,10 @@ function renderDraftReviewState(reviewState) {
     elements.draftFields.replaceChildren();
     elements.draftWarningList.replaceChildren();
     elements.draftUnmappedList.replaceChildren();
+    elements.fillReadinessMessage.textContent = "";
+    elements.fillHandoffButton.disabled = true;
+    elements.fillPayloadSummary.hidden = true;
+    elements.fillPayloadSummary.textContent = "";
     return;
   }
 
@@ -145,8 +162,34 @@ function renderDraftReviewState(reviewState) {
     : reviewState.draft.attribution;
 
   elements.draftFields.replaceChildren(...listReviewFields(reviewState).map(renderDraftField));
+  renderFillReadiness(reviewState);
   renderWarnings(reviewState.warnings || []);
   renderUnmapped(reviewState.draft.unmapped || []);
+}
+
+function renderFillReadiness(reviewState) {
+  const readiness = summarizeReviewReadiness(reviewState);
+  elements.fillHandoffButton.disabled = !readiness.ready;
+  elements.fillPayloadSummary.hidden = true;
+  elements.fillPayloadSummary.textContent = "";
+
+  if (readiness.fillableFieldCount === 0) {
+    elements.fillReadinessMessage.textContent = "没有可交给豆瓣填表的字段。";
+    return;
+  }
+
+  if (!readiness.ready) {
+    elements.fillReadinessMessage.textContent = [
+      `可填写字段 ${readiness.fillableFieldCount} 个。`,
+      `还有 ${readiness.unconfirmedFillableFieldCount} 个可填写字段未确认：${readiness.unconfirmedFillableFields.map(fieldLabel).join("、")}。`,
+    ].join(" ");
+    return;
+  }
+
+  elements.fillReadinessMessage.textContent = [
+    `可填写字段 ${readiness.fillableFieldCount} 个，均已确认。`,
+    "当前只生成交接摘要，不会打开、填写或提交豆瓣页面。",
+  ].join(" ");
 }
 
 function renderDraftField(item) {
@@ -305,6 +348,20 @@ async function clearDraft() {
 
   elements.resultMessage.textContent = "草稿预览已清除。";
   renderDraftReviewState(null);
+}
+
+async function requestDoubanFillHandoff() {
+  const response = await chrome.runtime.sendMessage({
+    type: "REQUEST_DOUBAN_FILL_FROM_REVIEW_STATE",
+  });
+
+  elements.fillPayloadSummary.hidden = false;
+  elements.fillPayloadSummary.textContent = JSON.stringify({
+    message: response?.message || "Douban form filling is not implemented yet.",
+    readiness: response?.readiness || null,
+    payloadSummary: response?.payloadSummary || null,
+  }, null, 2);
+  elements.resultMessage.textContent = "已生成填写交接摘要。当前版本不会操作豆瓣页面。";
 }
 
 function renderImportError(error) {
