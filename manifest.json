@@ -36,7 +36,7 @@
   "web_accessible_resources": [
     {
       "resources": ["src/core/douban/douban-form-assistant.js"],
-      "matches": ["https://music.douban.com/new_subject*"]
+      "matches": ["https://music.douban.com/*"]
     }
   ]
 }
