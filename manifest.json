@@ -7,7 +7,8 @@
   "host_permissions": [
     "https://www.discogs.com/*",
     "https://discogs.com/*",
-    "https://api.discogs.com/*"
+    "https://api.discogs.com/*",
+    "https://music.douban.com/new_subject*"
   ],
   "background": {
     "service_worker": "src/background/service-worker.js",
@@ -25,6 +26,17 @@
       ],
       "js": ["src/content/discogs-page-detector.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://music.douban.com/new_subject*"],
+      "js": ["src/content/douban-form-assistant.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["src/core/douban/douban-form-assistant.js"],
+      "matches": ["https://music.douban.com/new_subject*"]
     }
   ]
 }

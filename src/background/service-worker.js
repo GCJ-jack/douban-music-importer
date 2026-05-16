@@ -94,10 +94,20 @@ async function handleMessage(message) {
     const reviewState = await getDraftReviewState();
     const readiness = summarizeReviewReadiness(reviewState);
     const fillPayload = getFillableDraftFields(reviewState);
+
+    if (!readiness.ready) {
+      return {
+        ok: false,
+        code: "not_ready",
+        message: "Confirm all fillable draft fields before filling the Douban form.",
+        readiness,
+        payloadSummary: summarizeFillPayload(fillPayload),
+      };
+    }
+
+    const fillResponse = await sendDoubanFillRequest(fillPayload);
     return {
-      ok: false,
-      code: "not_implemented",
-      message: "Douban form filling is not implemented yet.",
+      ...fillResponse,
       readiness,
       payloadSummary: summarizeFillPayload(fillPayload),
     };
@@ -183,6 +193,40 @@ function summarizeFillPayload(fillPayload) {
     fieldCount: Object.keys(fillPayload).length,
     fields: Object.keys(fillPayload),
   };
+}
+
+async function sendDoubanFillRequest(fillPayload) {
+  const [activeTab] = await chrome.tabs.query({
+    active: true,
+    currentWindow: true,
+  });
+
+  if (!activeTab?.id) {
+    return {
+      ok: false,
+      code: "no_active_tab",
+      message: "No active tab is available for Douban form filling.",
+    };
+  }
+
+  try {
+    const response = await chrome.tabs.sendMessage(activeTab.id, {
+      type: "FILL_DOUBAN_DETAILED_FORM",
+      fields: fillPayload,
+    });
+    return response || {
+      ok: false,
+      code: "empty_douban_response",
+      message: "Douban form assistant did not return a fill result.",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      code: "douban_content_script_unavailable",
+      message: "Open the Douban Music new-subject detailed form before filling.",
+      details: error instanceof Error ? error.message : String(error),
+    };
+  }
 }
 
 function serializeError(error) {

@@ -188,7 +188,7 @@ function renderFillReadiness(reviewState) {
 
   elements.fillReadinessMessage.textContent = [
     `可填写字段 ${readiness.fillableFieldCount} 个，均已确认。`,
-    "当前只生成交接摘要，不会打开、填写或提交豆瓣页面。",
+    "点击后只会尝试填写当前已打开的豆瓣详细表单，不会打开页面或提交。",
   ].join(" ");
 }
 
@@ -357,11 +357,17 @@ async function requestDoubanFillHandoff() {
 
   elements.fillPayloadSummary.hidden = false;
   elements.fillPayloadSummary.textContent = JSON.stringify({
-    message: response?.message || "Douban form filling is not implemented yet.",
+    ok: Boolean(response?.ok),
+    code: response?.code || null,
+    message: response?.message || null,
     readiness: response?.readiness || null,
     payloadSummary: response?.payloadSummary || null,
+    result: response?.result || null,
+    page: response?.page || null,
   }, null, 2);
-  elements.resultMessage.textContent = "已生成填写交接摘要。当前版本不会操作豆瓣页面。";
+  elements.resultMessage.textContent = response?.ok
+    ? "已向当前豆瓣详细表单写入可填写字段。请在豆瓣页面人工检查。"
+    : fillHandoffStatusText(response?.code);
 }
 
 function renderImportError(error) {
@@ -392,6 +398,19 @@ function errorText(code) {
   };
 
   return labels[code] || "请求失败";
+}
+
+function fillHandoffStatusText(code) {
+  const labels = {
+    not_ready: "还有可填写字段未确认，请先确认后再填写。",
+    lookupPage: "当前是豆瓣查询/消重页，请先按豆瓣页面流程进入详细表单。",
+    unsupported: "请先打开豆瓣音乐新条目详细表单。",
+    douban_content_script_unavailable: "请先打开豆瓣音乐新条目详细表单。",
+    no_active_tab: "未找到当前活动标签页。",
+    fill_error: "填写时遇到错误，请查看交接摘要。",
+  };
+
+  return labels[code] || "未完成填写，请查看交接摘要。";
 }
 
 function fieldLabel(name) {
