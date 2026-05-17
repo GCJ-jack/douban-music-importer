@@ -18,25 +18,35 @@
 
 方向：
 
+- RYM manual paste to Douban draft prototype。
+- 支持用户手动粘贴 RYM album 页面可见信息，并在本地解析为 `DoubanMusicDraft`。
+- 用于新专辑、非实体发行、Discogs release 尚不完整的场景。
+- 不自动请求 RYM 页面、不自动抓取、不后台爬取、不绕过登录/验证码/访问限制。
+- 不新增 RYM host permission。
+
+## v0.3
+
+方向：
+
 - 增强 Discogs API 数据兼容性。
 - 改进多碟、多格式、多厂牌、多 catalog number 处理。
 - 改进错误提示和字段映射说明。
 
-## v0.3
+## v0.4
 
 方向：
 
 - 改进草稿 review 体验。
 - 探索 Discogs master 到 release 的辅助选择，但不自动选择或批量遍历。
 
-## v0.4
+## v0.5
 
 方向：
 
-- 调研并原型支持 RYM。
-- 明确访问限制、服务边界和合规风险。
+- 继续跟踪 RYM / Sonemic 是否提供官方 API、数据集或明确授权路径。
+- 若没有官方路径，RYM 仍只保持 manual paste / local parsing，不做网络 importer。
 
-## v0.5
+## v0.6
 
 方向：
 
