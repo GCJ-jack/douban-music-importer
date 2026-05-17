@@ -13,7 +13,9 @@ export function validateAlbumReleaseMetadata(metadata) {
   requireString(errors, metadata.source?.sourceType, "source.sourceType");
   requireString(errors, metadata.source?.url, "source.url");
   requireString(errors, metadata.source?.id, "source.id");
-  requireString(errors, metadata.source?.apiUrl, "source.apiUrl");
+  if (metadata.source?.apiUrl !== undefined && metadata.source.apiUrl !== "") {
+    requireString(errors, metadata.source.apiUrl, "source.apiUrl");
+  }
   requireString(errors, metadata.source?.fetchedAt, "source.fetchedAt");
   requireString(errors, metadata.release?.title, "release.title");
 

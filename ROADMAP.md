@@ -18,11 +18,12 @@
 
 方向：
 
-- RYM manual paste to Douban draft prototype。
-- 支持用户手动粘贴 RYM album 页面可见信息，并在本地解析为 `DoubanMusicDraft`。
+- RYM current-page album extractor to Douban draft prototype。
+- 支持用户手动打开 RYM album 页面后点击插件，读取当前页 DOM / 可见文本，并在本地解析为 `DoubanMusicDraft`。
+- manual paste / local parsing 作为 current-page DOM 不稳定、字段不足或页面暂不支持时的 fallback。
 - 用于新专辑、非实体发行、Discogs release 尚不完整的场景。
-- 不自动请求 RYM 页面、不自动抓取、不后台爬取、不绕过登录/验证码/访问限制。
-- 不新增 RYM host permission。
+- 不自动请求 RYM 页面、不做 network importer、不自动抓取、不后台爬取、不绕过登录/验证码/访问限制。
+- 不新增 RYM host permission；允许未来实现时新增最小 `scripting` permission，用于 `activeTab` 下的一次性注入。
 
 ## v0.3
 
@@ -44,7 +45,7 @@
 方向：
 
 - 继续跟踪 RYM / Sonemic 是否提供官方 API、数据集或明确授权路径。
-- 若没有官方路径，RYM 仍只保持 manual paste / local parsing，不做网络 importer。
+- 若没有官方路径，RYM 仍不做 network importer；只允许 current-page extraction 或 manual paste 这类用户发起、本地解析方案。
 
 ## v0.6
 

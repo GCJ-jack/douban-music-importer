@@ -92,7 +92,7 @@ export function mapReleaseToDoubanDraft(metadata) {
   return {
     schemaVersion: DOUBAN_DRAFT_SCHEMA_VERSION,
     sourceUrl,
-    attribution: `Metadata imported from Discogs release ${metadata.source.id}. Please review before submitting to Douban.`,
+    attribution: sourceAttribution(metadata.source),
     fields,
     unmapped,
   };
@@ -177,6 +177,14 @@ function formatExternalLinks(externalUrls, fallbackUrl) {
     urls.unshift(fallbackUrl);
   }
   return urls.join("\n");
+}
+
+function sourceAttribution(source) {
+  if (source?.provider === "rym") {
+    return "Metadata extracted from the current Rate Your Music album page. Please review before submitting to Douban.";
+  }
+
+  return `Metadata imported from Discogs release ${source?.id || ""}. Please review before submitting to Douban.`;
 }
 
 function firstIdentifierValue(identifiers, type) {

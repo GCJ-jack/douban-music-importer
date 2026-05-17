@@ -11,6 +11,7 @@ const elements = {
   releaseId: document.querySelector("#release-id"),
   apiStatus: document.querySelector("#api-status"),
   importButton: document.querySelector("#import-button"),
+  rymImportButton: document.querySelector("#rym-import-button"),
   resultMessage: document.querySelector("#result-message"),
   draftReview: document.querySelector("#draft-review"),
   clearDraftButton: document.querySelector("#clear-draft-button"),
@@ -35,6 +36,10 @@ let currentPage = {
   releaseId: null,
   reason: "unknown",
 };
+let currentRymPage = {
+  supported: false,
+  reason: "unknown",
+};
 
 init();
 
@@ -46,11 +51,21 @@ async function init() {
 
   currentUrl = activeTab?.url || "";
   currentPage = parseDiscogsReleaseUrl(currentUrl);
+  currentRymPage = parseRymAlbumUrl(currentUrl);
 
-  renderPageState(currentPage);
+  renderPageState(currentPage, currentRymPage);
 
   elements.importButton.addEventListener("click", () => {
     importCurrentRelease().catch((error) => {
+      renderImportError({
+        code: "unexpected_error",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
+  });
+
+  elements.rymImportButton.addEventListener("click", () => {
+    importCurrentRymPage().catch((error) => {
       renderImportError({
         code: "unexpected_error",
         message: error instanceof Error ? error.message : String(error),
@@ -85,13 +100,21 @@ async function init() {
   await loadDraftReviewState();
 }
 
-function renderPageState(page) {
+function renderPageState(page, rymPage) {
+  const unsupportedReason = rymPage.reason !== "unsupported_host" ? rymPage.reason : page.reason;
   elements.status.textContent = page.supported
     ? "当前 Discogs release 页面支持导入。"
-    : "当前页面不是 v0.1 支持的 Discogs release 页面。";
-  elements.pageSupport.textContent = page.supported ? "支持" : reasonText(page.reason);
+    : rymPage.supported
+      ? "当前 RYM album 页面支持读取可见信息。"
+      : "当前页面不是支持的 Discogs release 或 RYM album 页面。";
+  elements.pageSupport.textContent = page.supported
+    ? "Discogs release"
+    : rymPage.supported
+      ? "RYM album"
+      : reasonText(unsupportedReason);
   elements.releaseId.textContent = page.releaseId || "-";
   elements.importButton.disabled = !page.supported;
+  elements.rymImportButton.disabled = !rymPage.supported;
 }
 
 async function importCurrentRelease() {
@@ -123,6 +146,37 @@ async function importCurrentRelease() {
   ].filter(Boolean).join(" ");
   await loadDraftReviewState();
   elements.importButton.disabled = false;
+}
+
+async function importCurrentRymPage() {
+  elements.rymImportButton.disabled = true;
+  elements.apiStatus.textContent = "读取中";
+  elements.resultMessage.textContent = "正在读取当前 RYM 页面可见信息，不会请求 RYM URL。";
+
+  const response = await chrome.runtime.sendMessage({
+    type: "IMPORT_RYM_CURRENT_PAGE",
+  });
+
+  if (!response?.ok) {
+    renderImportError(response?.error || {
+      code: "unknown_error",
+      message: "RYM 页面读取失败。",
+    });
+    elements.rymImportButton.disabled = !currentRymPage.supported;
+    return;
+  }
+
+  const summary = response.metadataSummary;
+  elements.apiStatus.textContent = "已保存 RYM current-page metadata";
+  elements.resultMessage.textContent = [
+    "RYM 页面读取成功。",
+    summary.title ? `标题：${summary.title}。` : "",
+    summary.artist ? `艺人：${summary.artist}。` : "",
+    `已生成豆瓣草稿摘要：${summary.draftFieldCount} 个字段，${summary.draftNeedsReviewCount} 个需复核，${summary.draftUnmappedCount} 个未映射，${summary.warningCount} 个 warning。`,
+    summary.normalizedValid && summary.draftValid ? "Schema 校验通过。" : "Schema 校验未通过，请检查导入数据。",
+  ].filter(Boolean).join(" ");
+  await loadDraftReviewState();
+  elements.rymImportButton.disabled = false;
 }
 
 async function loadDraftReviewState() {
@@ -381,6 +435,7 @@ function reasonText(reason) {
     unsupported_host: "不是 Discogs",
     not_release_page: "不是 release 页面",
     missing_release_id: "未找到 release_id",
+    not_rym_album_page: "不是 RYM album 页面",
     unknown: "未知",
   };
 
@@ -395,9 +450,33 @@ function errorText(code) {
     http_error: "HTTP 错误",
     invalid_json: "响应格式错误",
     empty_response: "空响应",
+    unsupported_rym_page: "不是 RYM album 页面",
+    rym_extractor_unavailable: "RYM 读取不可用",
+    no_active_tab: "未找到当前活动标签页",
   };
 
   return labels[code] || "请求失败";
+}
+
+function parseRymAlbumUrl(input) {
+  let url;
+
+  try {
+    url = new URL(input);
+  } catch {
+    return { supported: false, reason: "invalid_url" };
+  }
+
+  if (!["rateyourmusic.com", "www.rateyourmusic.com"].includes(url.hostname.toLowerCase())) {
+    return { supported: false, reason: "unsupported_host" };
+  }
+
+  const segments = url.pathname.split("/").filter(Boolean);
+  if (segments[0]?.toLowerCase() !== "release" || segments[1]?.toLowerCase() !== "album" || segments.length < 4) {
+    return { supported: false, reason: "not_rym_album_page" };
+  }
+
+  return { supported: true, reason: "rym_album_page" };
 }
 
 function fillHandoffStatusText(code) {

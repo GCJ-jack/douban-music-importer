@@ -2,11 +2,13 @@ import { fetchDiscogsRelease, DiscogsApiError } from "../core/discogs-api-client
 import { parseDiscogsReleaseUrl } from "../core/discogs-url-parser.js";
 import { mapReleaseToDoubanDraft } from "../core/mappers/douban-draft-mapper.js";
 import { normalizeDiscogsRelease } from "../core/normalizers/discogs-release-normalizer.js";
+import { normalizeRymAlbumExtract } from "../core/normalizers/rym-album-normalizer.js";
 import {
   createDraftReviewState,
   getFillableDraftFields,
   summarizeReviewReadiness,
 } from "../core/review/draft-review-state.js";
+import { extractRymCurrentPage } from "../core/rym/rym-current-page-extractor.js";
 import { summarizeDraft, validateAlbumReleaseMetadata, validateDoubanMusicDraft } from "../core/validation/schema-validation.js";
 import {
   clearDraftReviewState,
@@ -45,6 +47,10 @@ async function handleMessage(message) {
 
   if (message.type === "IMPORT_DISCOGS_RELEASE") {
     return importDiscogsRelease(message.url || "");
+  }
+
+  if (message.type === "IMPORT_RYM_CURRENT_PAGE") {
+    return importRymCurrentPage();
   }
 
   if (message.type === "GET_RAW_SOURCE_METADATA") {
@@ -178,6 +184,106 @@ async function importDiscogsRelease(url) {
       apiUrl: sourceMetadata.apiUrl,
       fetchedAt: sourceMetadata.fetchedAt,
       title: typeof sourceMetadata.raw.title === "string" ? sourceMetadata.raw.title : null,
+      normalizedValid: metadataValidation.ok,
+      draftValid: draftValidation.ok,
+      draftFieldCount: draftSummary.fieldCount,
+      draftNeedsReviewCount: draftSummary.needsReviewCount,
+      draftUnmappedCount: draftSummary.unmappedCount,
+      warningCount: normalizedMetadata.warnings.length,
+    },
+  };
+}
+
+async function importRymCurrentPage() {
+  const [activeTab] = await chrome.tabs.query({
+    active: true,
+    currentWindow: true,
+  });
+
+  if (!activeTab?.id) {
+    return {
+      ok: false,
+      error: {
+        code: "no_active_tab",
+        message: "No active tab is available for RYM extraction.",
+      },
+    };
+  }
+
+  let injection;
+  try {
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId: activeTab.id },
+      func: extractRymCurrentPage,
+    });
+    injection = result?.result;
+  } catch (error) {
+    return {
+      ok: false,
+      error: {
+        code: "rym_extractor_unavailable",
+        message: "Unable to read the current RYM page. Open an RYM album page and try again.",
+        details: error instanceof Error ? error.message : String(error),
+      },
+    };
+  }
+
+  if (!injection?.ok) {
+    return {
+      ok: false,
+      page: injection?.page || null,
+      error: {
+        code: injection?.code || "unsupported_rym_page",
+        message: injection?.message || "Current page is not a supported RYM album page.",
+      },
+      warnings: injection?.warnings || [],
+    };
+  }
+
+  const sourceMetadata = {
+    provider: "rym",
+    sourceType: "album",
+    pageUrl: injection.extract.sourceUrl,
+    extractorVersion: "0.2.0-prototype",
+    fetchedAt: new Date().toISOString(),
+    warnings: injection.warnings || [],
+    raw: injection.extract,
+  };
+
+  await saveRawSourceMetadata(sourceMetadata);
+
+  const normalizedMetadata = normalizeRymAlbumExtract(sourceMetadata);
+  const draft = mapReleaseToDoubanDraft(normalizedMetadata);
+  const metadataValidation = validateAlbumReleaseMetadata(normalizedMetadata);
+  const draftValidation = validateDoubanMusicDraft(draft);
+  const draftSummary = summarizeDraft(draft);
+  const reviewState = createDraftReviewState({
+    draft,
+    sourceSummary: {
+      provider: sourceMetadata.provider,
+      sourceType: sourceMetadata.sourceType,
+      pageUrl: sourceMetadata.pageUrl,
+      fetchedAt: sourceMetadata.fetchedAt,
+      title: sourceMetadata.raw.title || null,
+    },
+    warnings: normalizedMetadata.warnings,
+    validation: {
+      metadata: metadataValidation,
+      draft: draftValidation,
+    },
+  });
+  await saveDraftReviewState(reviewState);
+
+  return {
+    ok: true,
+    page: injection.page,
+    metadataSummary: {
+      provider: sourceMetadata.provider,
+      sourceType: sourceMetadata.sourceType,
+      pageUrl: sourceMetadata.pageUrl,
+      fetchedAt: sourceMetadata.fetchedAt,
+      title: sourceMetadata.raw.title || null,
+      artist: sourceMetadata.raw.artist || null,
       normalizedValid: metadataValidation.ok,
       draftValid: draftValidation.ok,
       draftFieldCount: draftSummary.fieldCount,

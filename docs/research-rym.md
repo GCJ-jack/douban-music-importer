@@ -10,7 +10,7 @@ RYM 对 album-level metadata 很有价值，尤其适合新发行或 Discogs rel
 
 但 RYM 当前不适合作为自动网络导入源。公开访问研究显示，RYM / Sonemic 对自动访问、抓取和爬取有明确限制，页面也存在 Cloudflare challenge 和访问稳定性风险。v0.2 不建议实现 RYM 页面自动请求、自动抓取或网络 importer。
 
-建议进入 v0.2 prototype，但只做 manual paste / local parsing assistant：用户手动从 RYM 页面复制可见信息，工具在本地解析为 `DoubanMusicDraft`，再进入现有 review UI。
+建议进入 v0.2 prototype，优先探索 current-page extractor：用户自己打开 RYM album 页面并点击插件后，扩展只读取当前页面 DOM / 可见文本，在本地解析为 `DoubanMusicDraft`，再进入现有 review UI。manual paste / local parsing 只作为 current-page DOM 不稳定、字段不足或页面暂不支持时的 fallback。
 
 ## Field Availability Matrix
 
@@ -90,20 +90,24 @@ Needed before any RYM implementation:
 
 ## Recommended v0.2 Prototype
 
-Proceed with a narrow v0.2 prototype only if it is manual and local:
+Proceed with a narrow v0.2 prototype only if it is user-initiated, current-page-only, and local:
 
-- User manually copies visible RYM album page information.
-- User pastes that text or manual fields into the extension.
-- Parsing happens locally from user-provided content.
+- User manually opens an RYM album page.
+- User clicks the extension.
+- The extension reads only the current page DOM / visible text after that user action.
+- Parsing happens locally from content already visible in the current tab.
 - Output is a `DoubanMusicDraft`.
 - Draft enters the existing review UI.
 - Existing no-submit, no-overwrite, no-login, no-cookie and safe-fill boundaries remain unchanged.
 - No RYM host permission is added.
+- A future implementation may add the minimal `scripting` permission to support one-shot injection under `activeTab`.
+- Manual paste remains as fallback when the current-page extractor cannot confidently read the page.
 
 Out of scope:
 
 - Automated requests to `rateyourmusic.com`.
-- Scraping release, chart, list, collection, search, or export pages.
+- RYM network importer or background fetch of RYM URLs.
+- Scraping release, chart, list, collection, search, or export pages beyond the current user-opened album page.
 - Login/session/cookie reuse.
 - CAPTCHA, Cloudflare, IP block, VPN, or rate-limit handling.
 - Background jobs, retries, pagination, or bulk import.
@@ -118,4 +122,4 @@ Recommended conclusion:
 
 RYM research completed for the first pass. RYM is useful for album-level fields such as title, artist, release date, genres/descriptors, language, tracklist, credits, and source attribution, especially for new albums that may not yet have complete Discogs releases. However, RYM is not currently suitable for automated network import because public policy signals prohibit automated access without permission, generic crawling is disallowed, Cloudflare/challenge behavior is likely, and no stable public API path was confirmed.
 
-Recommendation: do not implement RYM scraping/importing in v0.2. If we prototype anything, limit it to a manual user-paste assistant that parses user-provided visible text locally and feeds the existing review draft pipeline. Keep #12 open as the roadmap/research issue and track implementation in a separate v0.2 prototype issue.
+Recommendation: do not implement RYM scraping/importing in v0.2. If we prototype anything, prefer a user-initiated current-page extractor that reads only DOM / visible text from the RYM album page the user already opened, then feeds the existing review draft pipeline. Keep manual paste as a fallback for DOM drift or unsupported pages. Keep #12 open as the roadmap/research issue and track implementation in a separate v0.2 prototype issue.

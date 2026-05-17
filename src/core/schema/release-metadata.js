@@ -20,8 +20,8 @@ export function createDatePrecision(value, precision) {
 
 export function createSourceInfo(sourceMetadata) {
   return {
-    provider: "discogs",
-    sourceType: "release",
+    provider: sourceMetadata.provider || "discogs",
+    sourceType: sourceMetadata.sourceType || "release",
     url: sourceMetadata.pageUrl || sourceMetadata.raw?.uri || "",
     id: String(sourceMetadata.releaseId || sourceMetadata.raw?.id || ""),
     apiUrl: sourceMetadata.apiUrl || "",
@@ -35,8 +35,8 @@ export function createSourceInfo(sourceMetadata) {
  * @typedef {"info" | "warning" | "error"} WarningLevel
  *
  * @typedef {Object} SourceInfo
- * @property {"discogs"} provider
- * @property {"release"} sourceType
+ * @property {"discogs" | "rym"} provider
+ * @property {"release" | "album"} sourceType
  * @property {string} url
  * @property {string} id
  * @property {string} apiUrl
@@ -97,7 +97,7 @@ export function createSourceInfo(sourceMetadata) {
  * @property {"api" | "user"} source
  *
  * @typedef {Object} ExternalUrl
- * @property {"discogs" | "official" | "other"} provider
+ * @property {"discogs" | "rym" | "official" | "other"} provider
  * @property {string} url
  *
  * @typedef {Object} ImportWarning

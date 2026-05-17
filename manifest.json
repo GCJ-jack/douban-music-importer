@@ -3,7 +3,7 @@
   "name": "Douban Music Importer",
   "version": "0.1.0",
   "description": "Generate reviewable Douban Music import source metadata from the current Discogs release page.",
-  "permissions": ["storage", "activeTab"],
+  "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": [
     "https://www.discogs.com/*",
     "https://discogs.com/*",
