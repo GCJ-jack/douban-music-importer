@@ -8,6 +8,8 @@ import {
 const elements = {
   status: document.querySelector("#status"),
   pageSupport: document.querySelector("#page-support"),
+  pageType: document.querySelector("#page-type"),
+  releaseIdRow: document.querySelector("#release-id-row"),
   releaseId: document.querySelector("#release-id"),
   apiStatus: document.querySelector("#api-status"),
   importButton: document.querySelector("#import-button"),
@@ -102,19 +104,43 @@ async function init() {
 
 function renderPageState(page, rymPage) {
   const unsupportedReason = rymPage.reason !== "unsupported_host" ? rymPage.reason : page.reason;
-  elements.status.textContent = page.supported
-    ? "当前 Discogs release 页面支持导入。"
-    : rymPage.supported
-      ? "当前 RYM album 页面支持读取可见信息。"
-      : "当前页面不是支持的 Discogs release 或 RYM album 页面。";
-  elements.pageSupport.textContent = page.supported
-    ? "Discogs release"
-    : rymPage.supported
-      ? "RYM album"
-      : reasonText(unsupportedReason);
-  elements.releaseId.textContent = page.releaseId || "-";
-  elements.importButton.disabled = !page.supported;
-  elements.rymImportButton.disabled = !rymPage.supported;
+
+  elements.importButton.hidden = true;
+  elements.rymImportButton.hidden = true;
+  elements.releaseIdRow.hidden = true;
+
+  if (page.supported) {
+    elements.status.textContent = "当前 Discogs release 页面支持导入。";
+    elements.pageSupport.textContent = "Discogs";
+    elements.pageType.textContent = "Release";
+    elements.releaseIdRow.hidden = false;
+    elements.releaseId.textContent = page.releaseId || "-";
+    elements.apiStatus.textContent = "未请求";
+    elements.importButton.hidden = false;
+    elements.importButton.disabled = false;
+    elements.rymImportButton.disabled = true;
+    return;
+  }
+
+  if (rymPage.supported) {
+    elements.status.textContent = "当前 RYM album 页面支持读取可见信息。";
+    elements.pageSupport.textContent = "RYM";
+    elements.pageType.textContent = "Album";
+    elements.releaseId.textContent = "-";
+    elements.apiStatus.textContent = "可读取当前页";
+    elements.importButton.disabled = true;
+    elements.rymImportButton.hidden = false;
+    elements.rymImportButton.disabled = false;
+    return;
+  }
+
+  elements.status.textContent = "请打开 Discogs release 或 RYM album 页面。";
+  elements.pageSupport.textContent = "不支持";
+  elements.pageType.textContent = reasonText(unsupportedReason);
+  elements.releaseId.textContent = "-";
+  elements.apiStatus.textContent = "等待支持页面";
+  elements.importButton.disabled = true;
+  elements.rymImportButton.disabled = true;
 }
 
 async function importCurrentRelease() {
