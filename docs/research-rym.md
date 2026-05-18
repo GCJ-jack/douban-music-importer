@@ -12,6 +12,8 @@ RYM 对 album-level metadata 很有价值，尤其适合新发行或 Discogs rel
 
 建议进入 v0.2 prototype，优先探索 current-page extractor：用户自己打开 RYM album 页面并点击插件后，扩展只读取当前页面 DOM / 可见文本，在本地解析为 `DoubanMusicDraft`，再进入现有 review UI。manual paste / local parsing 只作为 current-page DOM 不稳定、字段不足或页面暂不支持时的 fallback。
 
+Important product boundary: the RYM prototype is an album-level source, not a release/version source. v0.2 first pass should use RYM primarily for title, artist, release date, genres/descriptors as review-only context, tracklist, and source URL. It should not automatically generate Douban publisher/出版者 from RYM, and it should not generate `coverImageUrl`, fetch cover art, upload cover art, or reuse RYM cover URLs.
+
 ## Field Availability Matrix
 
 | Field | Public RYM album pages | Reliability | Notes |
@@ -25,12 +27,12 @@ RYM 对 album-level metadata 很有价值，尤其适合新发行或 Discogs rel
 | Language | yes | medium | Visible on many pages, but not mapped in v0.1. |
 | Tracklist | yes | medium-high | Track titles and durations are often visible. |
 | Credits | partial | medium | Often broad/noisy; should remain review context unless explicitly mapped later. |
-| Label/publisher | sometimes | low-medium | Appears in issue/version rows for some pages, absent or `n/a` on others. |
+| Label/publisher | sometimes | low-medium | Appears in issue/version rows for some pages, absent or `n/a` on others. v0.2 first pass should not auto-generate Douban publisher from RYM. If Douban requires publisher, the user must fill it manually or a future version can supplement it from another source. |
 | Format/media | sometimes | low-medium | Issue rows may show CD / Digital / Vinyl, but RYM is not release-version-first. |
 | Country | sometimes | low | Some issue rows show country; inconsistent. |
 | Catalog number | rarely/not reliable | low | Not consistently visible in public indexed text. |
 | Barcode | no reliable evidence | low | Should not be mapped from RYM. |
-| Cover image URL | visible art presence only | low | Direct image URL not safely established; no auto cover handling. |
+| Cover image URL | visible art presence only | low | Direct image URL is out of scope for v0.2 first pass. Do not generate `coverImageUrl`, fetch cover art, upload cover art, or reuse RYM cover URLs. If a cover is needed, the user handles it manually. |
 | External/source URL | yes | high | RYM page URL can be used as source attribution. |
 | Ratings/rankings/reviews | yes | high | Do not import into Douban draft; community/user content is not needed for submission. |
 
@@ -85,7 +87,10 @@ Needed before any RYM implementation:
   - `externalUrls.provider: "rym"`
   - provider-specific attribution text
 - Treat RYM as album-centric, not release-version-centric.
+- Treat RYM as a source for title, artist, release date, genres/descriptors as review-only context, tracklist, and source URL.
 - Do not infer publisher/media/barcode/catalog/country from weak issue rows unless future research proves reliable and allowed.
+- v0.2 first pass must not auto-generate Douban publisher/出版者 from RYM. If Douban requires publisher, the user fills it manually or a later workflow supplements it from another source.
+- v0.2 first pass must not auto-generate `coverImageUrl`, fetch cover art, upload cover art, or reuse RYM cover URLs. If a cover is needed, the user handles it manually.
 - Do not import ratings, rankings, reviews, charts, lists, or user-specific data.
 
 ## Recommended v0.2 Prototype
@@ -97,6 +102,9 @@ Proceed with a narrow v0.2 prototype only if it is user-initiated, current-page-
 - The extension reads only the current page DOM / visible text after that user action.
 - Parsing happens locally from content already visible in the current tab.
 - Output is a `DoubanMusicDraft`.
+- The draft should only use RYM for album-level fields: title, artist, release date, genres/descriptors as review-only context, tracklist, and source URL.
+- The draft should not auto-fill or auto-generate publisher/出版者 from RYM.
+- The draft should not include `coverImageUrl` from RYM; cover handling remains manual.
 - Draft enters the existing review UI.
 - Existing no-submit, no-overwrite, no-login, no-cookie and safe-fill boundaries remain unchanged.
 - No RYM host permission is added.

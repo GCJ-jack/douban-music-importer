@@ -20,6 +20,10 @@
 
 - RYM current-page album extractor to Douban draft prototype。
 - 支持用户手动打开 RYM album 页面后点击插件，读取当前页 DOM / 可见文本，并在本地解析为 `DoubanMusicDraft`。
+- RYM prototype 作为 album-level source，不作为 release/version source。
+- v0.2 第一版主要使用 RYM 提供 title、artist、releaseDate、genres/descriptors（review-only）、tracklist 和 source URL。
+- v0.2 第一版不从 RYM 自动生成 publisher/出版者；如果豆瓣要求出版者，用户需要手动填写，或后续从其它来源补充。
+- v0.2 第一版不从 RYM 自动生成 `coverImageUrl`，不抓取、不上传、不复用 RYM cover URL；如果需要封面，用户手动处理。
 - manual paste / local parsing 作为 current-page DOM 不稳定、字段不足或页面暂不支持时的 fallback。
 - 用于新专辑、非实体发行、Discogs release 尚不完整的场景。
 - 不自动请求 RYM 页面、不做 network importer、不自动抓取、不后台爬取、不绕过登录/验证码/访问限制。
