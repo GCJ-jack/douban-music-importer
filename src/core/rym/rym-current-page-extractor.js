@@ -39,58 +39,128 @@ export function extractRymCurrentPage(options = {}) {
       && parts.length >= 4;
   }
 
-  function pageTextLines() {
-    return String(documentRef?.body?.innerText || documentRef?.body?.textContent || "")
-      .split(/\n+/)
-      .map(text)
-      .filter(Boolean);
-  }
-
   function firstNonEmpty(...values) {
     return values.map(text).find(Boolean) || "";
   }
 
-  function extractTitle(lines) {
-    const heading = firstNonEmpty(
+  function explicitTitle() {
+    return firstNonEmpty(
       textContent(".album_title"),
       textContent(".release_title"),
-      textContent("h1[itemprop='name']"),
-      textContent("h1")
+      textContent("h1[itemprop='name']")
     );
-    if (heading) return heading;
-
-    const titleLine = lines.find((line) => /^title[:：]\s+/i.test(line));
-    if (titleLine) return titleLine.replace(/^title[:：]\s+/i, "").trim();
-
-    return "";
   }
 
-  function extractArtist(lines) {
-    const artist = firstNonEmpty(
+  function headingTitle() {
+    return textContent("h1");
+  }
+
+  function explicitArtist() {
+    return firstNonEmpty(
       textContent(".artist"),
       textContent(".album_artist"),
       textContent("[itemprop='byArtist']"),
       textContent("a[href*='/artist/']")
     );
-    if (artist) return artist;
+  }
 
-    const artistLine = lines.find((line) => /^(artist|by)[:：]\s+/i.test(line));
-    if (artistLine) return artistLine.replace(/^(artist|by)[:：]\s+/i, "").trim();
+  function extractTitleArtist() {
+    const artist = explicitArtist();
+    const title = firstNonEmpty(explicitTitle(), headingTitle());
+    if (!title) {
+      return { title: "", artist, warnings: [] };
+    }
 
+    if (artist) {
+      return {
+        title: removeByArtistSuffix(title, artist),
+        artist,
+        warnings: [],
+      };
+    }
+
+    const split = splitHeadingByArtist(title);
+    if (split) {
+      return {
+        title: split.title,
+        artist: split.artist,
+        warnings: [],
+      };
+    }
+
+    return {
+      title,
+      artist: "",
+      warnings: /\s+by\s+/i.test(title)
+        ? [warning("title", "Could not confidently split RYM album heading into title and artist.")]
+        : [],
+    };
+  }
+
+  function splitHeadingByArtist(value) {
+    const normalized = text(value);
+    const match = normalized.match(/^(.+?)\s+by\s+(.+)$/i);
+    if (!match) return null;
+
+    const title = text(match[1]);
+    const artist = text(match[2]);
+    if (!title || !artist) return null;
+
+    return { title, artist };
+  }
+
+  function removeByArtistSuffix(title, artist) {
+    const normalizedTitle = text(title);
+    const normalizedArtist = text(artist);
+    if (!normalizedTitle || !normalizedArtist) return normalizedTitle;
+
+    const suffix = new RegExp(`\\s+by\\s+${escapeRegExp(normalizedArtist)}$`, "i");
+    return text(normalizedTitle.replace(suffix, ""));
+  }
+
+  function escapeRegExp(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function fieldRows() {
+    const selectors = [
+      ".release_info tr",
+      ".release_info_row",
+      ".info_row",
+      ".album_info tr",
+      "[class*='release_info'] tr",
+    ];
+    return selectors.flatMap((selector) => Array.from(documentRef?.querySelectorAll?.(selector) || []));
+  }
+
+  function extractFieldByLabel(labels) {
+    const labelPattern = new RegExp(`^(${labels.join("|")})\\b\\s*[:：]?\\s*(.+)$`, "i");
+    for (const row of fieldRows()) {
+      const rowText = text(row.textContent);
+      const rowMatch = rowText.match(labelPattern);
+      if (rowMatch?.[2]) return rowMatch[2].trim();
+
+      const cells = Array.from(row.querySelectorAll?.("th, td, .label, .value") || [])
+        .map((cell) => text(cell.textContent))
+        .filter(Boolean);
+      for (let index = 0; index < cells.length - 1; index += 1) {
+        if (labels.some((label) => new RegExp(`^${label}$`, "i").test(cells[index].replace(/[:：]$/, "")))) {
+          return cells.slice(index + 1).join(" ").trim();
+        }
+      }
+    }
     return "";
   }
 
-  function extractReleaseDate(lines) {
+  function extractReleaseDate() {
     const candidates = [
       textContent("[itemprop='datePublished']"),
-      ...lines.filter((line) => /^(released?|release date|date)[:：]/i.test(line)),
-      ...lines.filter((line) => /\b\d{1,2}\s+[A-Za-z]+\s+\d{4}\b/.test(line)),
-      ...lines.filter((line) => /\b\d{4}[-/]\d{1,2}([-/]\d{1,2})?\b/.test(line)),
+      extractFieldByLabel(["Released"]),
     ];
 
     for (const candidate of candidates) {
       const value = text(candidate)
-        .replace(/^(released?|release date|date)[:：]\s*/i, "")
+        .replace(/^released[:：]?\s*/i, "")
         .trim();
       const iso = parseDate(value);
       if (iso) return iso;
@@ -131,45 +201,102 @@ export function extractRymCurrentPage(options = {}) {
     return year ? year[1] : "";
   }
 
-  function extractDelimitedField(lines, labels) {
-    const pattern = new RegExp(`^(${labels.join("|")})[:：]\\s*(.+)$`, "i");
-    const line = lines.find((item) => pattern.test(item));
-    if (!line) return [];
-    const value = line.replace(pattern, "$2");
+  function extractDelimitedField(labels) {
+    const value = extractFieldByLabel(labels);
+    if (!value) return [];
     return value.split(/[;,]/).map(text).filter(Boolean);
   }
 
-  function extractGenres(lines) {
+  function extractGenres() {
     return unique([
       ...allText(".genre"),
       ...allText(".release_pri_genres a"),
       ...allText("a[href*='/genre/']"),
-      ...extractDelimitedField(lines, ["genres?", "primary genres?"]),
+      ...extractDelimitedField(["Genres?", "Primary genres?"]),
     ]);
   }
 
-  function extractDescriptors(lines) {
+  function extractDescriptors() {
     return unique([
       ...allText(".descriptor"),
       ...allText(".release_descriptors a"),
-      ...extractDelimitedField(lines, ["descriptors?"]),
+      ...extractDelimitedField(["Descriptors?"]),
     ]);
   }
 
-  function extractTracks(lines) {
-    const selectorTracks = allText(".tracklist .track, .tracklist li, [class*='tracklist'] li");
-    if (selectorTracks.length) {
-      return selectorTracks.map(cleanTrack).filter(Boolean);
+  function extractTracks() {
+    const trackSelectors = [
+      ".tracklist tr",
+      ".tracklist li",
+      ".tracklist .track",
+      ".track_listing tr",
+      ".track_listing li",
+      ".section_tracklisting tr",
+      ".section_tracklisting li",
+      "[class*='tracklist'] tr",
+      "[class*='tracklist'] li",
+    ];
+    const containerSelectors = [
+      ".tracklist",
+      ".track_listing",
+      ".section_tracklisting",
+      "[class*='tracklist']",
+    ];
+    const candidates = [
+      ...trackSelectors.flatMap((selector) => allText(selector)),
+      ...containerSelectors.flatMap((selector) => splitTrackContainerText(allText(selector))),
+    ];
+    const seen = new Set();
+    const tracks = [];
+
+    for (const candidate of candidates) {
+      const parsed = parseTrack(candidate);
+      if (!parsed) continue;
+
+      const key = `${parsed.position.toLowerCase()}\u0000${parsed.title.toLowerCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      tracks.push(`${parsed.position} ${parsed.title}`);
     }
 
-    return unique(lines
-      .filter((line) => /^(\d{1,2}[.)]\s+|[A-Z]\d{1,2}\s+|\d{1,2}\s+).+/.test(line))
-      .map(cleanTrack)
-      .filter(Boolean));
+    return tracks;
   }
 
-  function cleanTrack(value) {
-    return text(value).replace(/\s+\d{1,2}:\d{2}$/, "").trim();
+  function splitTrackContainerText(values) {
+    return values.flatMap((value) => String(value || "").split(/\n+/).map(text).filter(Boolean));
+  }
+
+  function parseTrack(value) {
+    const cleaned = text(value)
+      .replace(/\s+\d{1,2}:\d{2}$/, "")
+      .trim();
+    if (!cleaned || /Saving\.\.\.|rymQ\(|track_ratings|Entire album/i.test(cleaned)) {
+      return null;
+    }
+
+    const match = cleaned.match(/^([A-Z]\d{1,2}|\d{1,2}[.)]|\d{2})\s+(.+)$/);
+    if (!match) return null;
+
+    const position = match[1].replace(/[.)]$/, "");
+    const title = text(match[2]);
+    if (!title || /Saving\.\.\.|rymQ\(|track_ratings|Entire album/i.test(title)) {
+      return null;
+    }
+
+    return { position, title };
+  }
+
+  function hasReleaseAlbumDom() {
+    const titleArtist = extractTitleArtist();
+    return Boolean(
+      titleArtist.title
+      && titleArtist.artist
+      && (
+        textContent("[itemprop='datePublished']")
+        || extractFieldByLabel(["Released"])
+        || extractTracks().length > 0
+      )
+    );
   }
 
   const url = parseUrl(locationRef?.href || "");
@@ -188,17 +315,34 @@ export function extractRymCurrentPage(options = {}) {
     };
   }
 
-  const lines = pageTextLines();
+  if (!hasReleaseAlbumDom()) {
+    return {
+      ok: false,
+      code: "unsupported_dom",
+      message: "Current page DOM is not a supported RYM album release page.",
+      page: {
+        supported: false,
+        reason: "unsupported_dom",
+        url: locationRef?.href || "",
+      },
+      warnings,
+      extract: null,
+    };
+  }
+
+  const titleArtist = extractTitleArtist();
+  warnings.push(...titleArtist.warnings);
+
   const extract = {
     provider: "rym",
     sourceType: "album",
     sourceUrl: url.href,
-    title: extractTitle(lines),
-    artist: extractArtist(lines),
-    releaseDate: extractReleaseDate(lines),
-    genres: extractGenres(lines),
-    descriptors: extractDescriptors(lines),
-    tracks: extractTracks(lines),
+    title: titleArtist.title,
+    artist: titleArtist.artist,
+    releaseDate: extractReleaseDate(),
+    genres: extractGenres(),
+    descriptors: extractDescriptors(),
+    tracks: extractTracks(),
   };
 
   if (!extract.title) warnings.push(warning("title", "Could not confidently extract RYM title."));

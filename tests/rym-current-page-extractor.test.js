@@ -13,17 +13,18 @@ import { validateAlbumReleaseMetadata, validateDoubanMusicDraft } from "../src/c
 
 test("extracts visible metadata from a current RYM album page", () => {
   const document = fakeDocument({
-    bodyText: [
-      "Album",
-      "Released 14 February 2025",
-      "Genres: Art Pop, Synthpop",
-      "Descriptors: melodic, lush",
-      "1. Opening",
-      "2. 夜の歌",
-    ].join("\n"),
     selectors: {
       "h1": ["Test Album"],
       "a[href*='/artist/']": ["Artist Name"],
+      ".release_info tr": [
+        "Released 14 February 2025",
+        "Genres: Art Pop, Synthpop",
+        "Descriptors: melodic, lush",
+      ],
+      ".tracklist tr": [
+        "1. Opening",
+        "2. 夜の歌",
+      ],
     },
   });
 
@@ -38,7 +39,112 @@ test("extracts visible metadata from a current RYM album page", () => {
   assert.equal(response.extract.releaseDate, "2025-02-14");
   assert.deepEqual(response.extract.genres, ["Art Pop", "Synthpop"]);
   assert.deepEqual(response.extract.descriptors, ["melodic", "lush"]);
-  assert.deepEqual(response.extract.tracks, ["1. Opening", "2. 夜の歌"]);
+  assert.deepEqual(response.extract.tracks, ["1 Opening", "2 夜の歌"]);
+});
+
+test("filters RYM track rating widget and script noise from tracklist", () => {
+  const document = fakeDocument({
+    selectors: {
+      "h1": ["Noisy Album"],
+      "a[href*='/artist/']": ["Artist Name"],
+      ".release_info tr": ["Released 1996"],
+      ".tracklist tr": [
+        "1. Clean Opener",
+        "Saving...",
+        "rymQ(function(){ track_ratings.init(); })",
+        "track_ratings 2. Polluted",
+        "2. Clean Closer 3:45",
+      ],
+    },
+  });
+
+  const response = extractRymCurrentPage({
+    document,
+    location: { href: "https://rateyourmusic.com/release/album/artist-name/noisy-album/" },
+  });
+
+  assert.equal(response.ok, true);
+  assert.deepEqual(response.extract.tracks, ["1 Clean Opener", "2 Clean Closer"]);
+});
+
+test("deduplicates repeated Entire album tracklist entries by position and title", () => {
+  const document = fakeDocument({
+    selectors: {
+      "h1": ["Repeated Album"],
+      "a[href*='/artist/']": ["Artist Name"],
+      ".release_info tr": ["Released 14 February 2025"],
+      ".tracklist tr": [
+        "1. Opening",
+        "2. Finale",
+        "Entire album",
+        "1. Opening",
+        "2. Finale",
+      ],
+    },
+  });
+
+  const response = extractRymCurrentPage({
+    document,
+    location: { href: "https://rateyourmusic.com/release/album/artist-name/repeated-album/" },
+  });
+
+  assert.equal(response.ok, true);
+  assert.deepEqual(response.extract.tracks, ["1 Opening", "2 Finale"]);
+});
+
+test("splits RYM album heading Title By Artist into title and artist", () => {
+  const response = extractRymCurrentPage({
+    document: fakeDocument({
+      selectors: {
+        "h1": ["Tragedy By The Vehicle Birth"],
+        ".release_info tr": ["Released 1996"],
+        ".tracklist tr": ["1. The Early Year"],
+      },
+    }),
+    location: { href: "https://rateyourmusic.com/release/album/the-vehicle-birth/tragedy/" },
+  });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.extract.title, "Tragedy");
+  assert.equal(response.extract.artist, "The Vehicle Birth");
+  assert.notEqual(response.extract.title, "Tragedy By The Vehicle Birth");
+});
+
+test("splits RYM album heading Title by Artist case-insensitively", () => {
+  const response = extractRymCurrentPage({
+    document: fakeDocument({
+      selectors: {
+        "h1": ["Tragedy by The Vehicle Birth"],
+        ".release_info tr": ["Released 1996"],
+        ".tracklist tr": ["1. The Early Year"],
+      },
+    }),
+    location: { href: "https://rateyourmusic.com/release/album/the-vehicle-birth/tragedy/" },
+  });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.extract.title, "Tragedy");
+  assert.equal(response.extract.artist, "The Vehicle Birth");
+  assert.notEqual(response.extract.title, "Tragedy by The Vehicle Birth");
+});
+
+test("prefers explicit album title and artist link over combined heading", () => {
+  const response = extractRymCurrentPage({
+    document: fakeDocument({
+      selectors: {
+        ".album_title": ["Tragedy"],
+        "h1": ["Tragedy By The Vehicle Birth"],
+        "a[href*='/artist/']": ["The Vehicle Birth"],
+        ".release_info tr": ["Released 1996"],
+        ".tracklist tr": ["1. The Early Year"],
+      },
+    }),
+    location: { href: "https://rateyourmusic.com/release/album/the-vehicle-birth/tragedy/" },
+  });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.extract.title, "Tragedy");
+  assert.equal(response.extract.artist, "The Vehicle Birth");
 });
 
 test("rejects non-RYM album pages without reading as supported", () => {
@@ -50,6 +156,85 @@ test("rejects non-RYM album pages without reading as supported", () => {
   assert.equal(response.ok, false);
   assert.equal(response.code, "unsupported_rym_page");
   assert.equal(response.page.reason, "not_rym_album_page");
+});
+
+test("rejects RYM artist and person pages as unsupported", () => {
+  for (const href of [
+    "https://rateyourmusic.com/artist/artist-name/",
+    "https://rateyourmusic.com/person/person-name/",
+    "https://rateyourmusic.com/release/single/artist-name/test-single/",
+  ]) {
+    const response = extractRymCurrentPage({
+      document: fakeDocument({
+        selectors: {
+          "h1": ["Artist Name"],
+          "a[href*='/artist/']": ["Artist Name"],
+          ".release_info tr": ["Released 1996"],
+        },
+      }),
+      location: { href },
+    });
+
+    assert.equal(response.ok, false);
+    assert.equal(response.code, "unsupported_rym_page");
+  }
+});
+
+test("rejects release album URLs without matching album release DOM", () => {
+  const response = extractRymCurrentPage({
+    document: fakeDocument({
+      selectors: {
+        "h1": ["Artist Name"],
+        ".release_info tr": ["RYM Rating 3.80 Ranked #12"],
+      },
+    }),
+    location: { href: "https://rateyourmusic.com/release/album/artist-name/not-an-album-dom/" },
+  });
+
+  assert.equal(response.ok, false);
+  assert.equal(response.code, "unsupported_dom");
+  assert.equal(response.extract, null);
+});
+
+test("parses Released year with year precision through the RYM normalizer", () => {
+  const response = extractRymCurrentPage({
+    document: fakeDocument({
+      selectors: {
+        "h1": ["Year Album"],
+        "a[href*='/artist/']": ["Artist Name"],
+        ".release_info tr": ["Released 1996"],
+        ".tracklist tr": ["1. Opening"],
+      },
+    }),
+    location: { href: "https://rateyourmusic.com/release/album/artist-name/year-album/" },
+  });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.extract.releaseDate, "1996");
+
+  const metadata = normalizeRymAlbumExtract({
+    raw: response.extract,
+    pageUrl: response.extract.sourceUrl,
+    fetchedAt: "2026-05-17T00:00:00.000Z",
+  });
+  assert.deepEqual(metadata.release.releaseDate, { value: "1996", precision: "year" });
+});
+
+test("does not infer release date from RYM Rating or Ranked text", () => {
+  const response = extractRymCurrentPage({
+    document: fakeDocument({
+      selectors: {
+        "h1": ["Undated Album"],
+        "a[href*='/artist/']": ["Artist Name"],
+        ".release_info tr": ["RYM Rating 3.96 Ranked #12 for 1996"],
+        ".tracklist tr": ["1. Opening"],
+      },
+    }),
+    location: { href: "https://rateyourmusic.com/release/album/artist-name/undated-album/" },
+  });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.extract.releaseDate, "");
 });
 
 test("maps RYM current-page extract into reviewable Douban draft without unsupported fill fields", () => {
@@ -108,6 +293,17 @@ test("maps RYM current-page extract into reviewable Douban draft without unsuppo
 
 function fakeDocument(options = {}) {
   const selectors = options.selectors || {};
+  const createNode = (value) => {
+    if (typeof value === "object" && value !== null) {
+      return value;
+    }
+    return {
+      textContent: value,
+      querySelectorAll() {
+        return [];
+      },
+    };
+  };
   return {
     body: {
       innerText: options.bodyText || "",
@@ -117,7 +313,7 @@ function fakeDocument(options = {}) {
       return this.querySelectorAll(selector)[0] || null;
     },
     querySelectorAll(selector) {
-      return (selectors[selector] || []).map((value) => ({ textContent: value }));
+      return (selectors[selector] || []).map(createNode);
     },
   };
 }
