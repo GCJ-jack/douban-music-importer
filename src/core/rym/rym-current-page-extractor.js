@@ -227,13 +227,21 @@ export function extractRymCurrentPage(options = {}) {
   function extractTracks() {
     const trackSelectors = [
       ".tracklist tr",
-      ".tracklist li",
       ".tracklist .track",
       ".track_listing tr",
-      ".track_listing li",
       ".section_tracklisting tr",
-      ".section_tracklisting li",
       "[class*='tracklist'] tr",
+      "[class*='track_listing'] tr",
+    ];
+    const structuredTracks = extractStructuredTrackRows(trackSelectors);
+    if (structuredTracks.length > 0) {
+      return structuredTracks;
+    }
+
+    const fallbackSelectors = [
+      ".tracklist li",
+      ".track_listing li",
+      ".section_tracklisting li",
       "[class*='tracklist'] li",
     ];
     const containerSelectors = [
@@ -243,14 +251,76 @@ export function extractRymCurrentPage(options = {}) {
       "[class*='tracklist']",
     ];
     const candidates = [
-      ...trackSelectors.flatMap((selector) => allText(selector)),
+      ...fallbackSelectors.flatMap((selector) => allText(selector)),
       ...containerSelectors.flatMap((selector) => splitTrackContainerText(allText(selector))),
     ];
+    return dedupeTracks(candidates.map(parseTrack).filter(Boolean));
+  }
+
+  function extractStructuredTrackRows(selectors) {
+    const rows = selectors.flatMap((selector) => Array.from(documentRef?.querySelectorAll?.(selector) || []));
+    const tracks = [];
+
+    for (const row of rows) {
+      const parsed = parseStructuredTrackRow(row);
+      if (parsed) tracks.push(parsed);
+    }
+
+    return dedupeTracks(tracks);
+  }
+
+  function parseStructuredTrackRow(row) {
+    const rowText = text(row?.textContent);
+    if (!rowText) {
+      return null;
+    }
+
+    const position = firstStructuredCellText(row, [
+      ".track_position",
+      ".track_pos",
+      ".pos",
+      "[class*='position']",
+      "[class*='tracknum']",
+    ]);
+    const title = firstStructuredCellText(row, [
+      ".track_title",
+      ".title",
+      "[class*='title']",
+    ]);
+    const explicit = normalizeStructuredTrack(position, title);
+    if (explicit) return explicit;
+
+    const cells = Array.from(row?.querySelectorAll?.("td, th") || [])
+      .map((cell) => text(cell.textContent))
+      .filter(Boolean);
+    for (let index = 0; index < cells.length - 1; index += 1) {
+      const parsed = normalizeStructuredTrack(cells[index], cells[index + 1]);
+      if (parsed) return parsed;
+    }
+
+    return parseTrack(rowText);
+  }
+
+  function firstStructuredCellText(row, selectors) {
+    for (const selector of selectors) {
+      const value = text(row?.querySelector?.(selector)?.textContent);
+      if (value) return value;
+    }
+    return "";
+  }
+
+  function normalizeStructuredTrack(positionValue, titleValue) {
+    const position = normalizeTrackPosition(positionValue);
+    const title = cleanTrackTitle(titleValue);
+    if (!position || !title) return null;
+    return { position, title };
+  }
+
+  function dedupeTracks(parsedTracks) {
     const seen = new Set();
     const tracks = [];
 
-    for (const candidate of candidates) {
-      const parsed = parseTrack(candidate);
+    for (const parsed of parsedTracks) {
       if (!parsed) continue;
 
       const key = `${parsed.position.toLowerCase()}\u0000${parsed.title.toLowerCase()}`;
@@ -270,20 +340,34 @@ export function extractRymCurrentPage(options = {}) {
     const cleaned = text(value)
       .replace(/\s+\d{1,2}:\d{2}$/, "")
       .trim();
-    if (!cleaned || /Saving\.\.\.|rymQ\(|track_ratings|Entire album/i.test(cleaned)) {
+    if (!cleaned || isNoisyTrackText(cleaned)) {
       return null;
     }
 
     const match = cleaned.match(/^([A-Z]\d{1,2}|\d{1,2}[.)]|\d{2})\s+(.+)$/);
     if (!match) return null;
 
-    const position = match[1].replace(/[.)]$/, "");
-    const title = text(match[2]);
-    if (!title || /Saving\.\.\.|rymQ\(|track_ratings|Entire album/i.test(title)) {
+    const position = normalizeTrackPosition(match[1]);
+    const title = cleanTrackTitle(match[2]);
+    if (!position || !title) {
       return null;
     }
 
     return { position, title };
+  }
+
+  function normalizeTrackPosition(value) {
+    const normalized = text(value).replace(/[.)]$/, "");
+    return /^([A-Z]\d{1,2}|\d{1,2})$/.test(normalized) ? normalized : "";
+  }
+
+  function cleanTrackTitle(value) {
+    const cleaned = text(value).replace(/\s+\d{1,2}:\d{2}$/, "").trim();
+    return cleaned && !isNoisyTrackText(cleaned) ? cleaned : "";
+  }
+
+  function isNoisyTrackText(value) {
+    return /Saving\.\.\.|rymQ\(|track_ratings|Entire album/i.test(text(value));
   }
 
   function hasReleaseAlbumDom() {

@@ -92,6 +92,76 @@ test("deduplicates repeated Entire album tracklist entries by position and title
   assert.deepEqual(response.extract.tracks, ["1 Opening", "2 Finale"]);
 });
 
+test("extracts RYM track table rows without appending inline duplicated tracklist", () => {
+  const trackRows = [
+    ["A1", "Crack Farm"],
+    ["A2", "We Need to Find the Girls"],
+    ["A3", "The Son's Room"],
+    ["A4", "With Her Shadow"],
+    ["A5", "Watching the Burn"],
+    ["B1", "Floods of Tears"],
+    ["B2", "Freak Show"],
+    ["B3", "Goodbye"],
+    ["B4", "Coaster"],
+    ["B5", "The Horse"],
+    ["B6", "The Discovery of Oxygen"],
+  ].map(([position, title]) => fakeRow([
+    position,
+    title,
+    "Saving...",
+    "rymQ(function(){ track_ratings.init(); })",
+  ]));
+
+  const document = fakeDocument({
+    selectors: {
+      "h1": ["Tragedy By The Vehicle Birth"],
+      ".release_info tr": ["Released 1996"],
+      ".tracklist tr": trackRows,
+      ".tracklist": [
+        [
+          "A1 Crack Farm",
+          "A2 We Need to Find the Girls",
+          "A3 The Son's Room",
+          "A4 With Her Shadow",
+          "A5 Watching the Burn",
+          "B1 Floods of Tears",
+          "B2 Freak Show",
+          "B3 Goodbye",
+          "B4 Coaster",
+          "B5 The Horse",
+          "B6 The Discovery of Oxygen",
+          "A1 Crack Farm A2 We Need to Find the Girls A3 The Son's Room",
+          "Saving...",
+          "rymQ(function(){ track_ratings.init(); })",
+        ].join("\n"),
+      ],
+    },
+  });
+
+  const response = extractRymCurrentPage({
+    document,
+    location: { href: "https://rateyourmusic.com/release/album/the-vehicle-birth/tragedy/" },
+  });
+
+  assert.equal(response.ok, true);
+  assert.deepEqual(response.extract.tracks, [
+    "A1 Crack Farm",
+    "A2 We Need to Find the Girls",
+    "A3 The Son's Room",
+    "A4 With Her Shadow",
+    "A5 Watching the Burn",
+    "B1 Floods of Tears",
+    "B2 Freak Show",
+    "B3 Goodbye",
+    "B4 Coaster",
+    "B5 The Horse",
+    "B6 The Discovery of Oxygen",
+  ]);
+  assert.equal(response.extract.tracks.length, 11);
+  assert.equal(response.extract.tracks.some((track) => track.includes("A1 Crack Farm A2")), false);
+  assert.equal(response.extract.tracks.some((track) => /Saving\.\.\.|rymQ\(/.test(track)), false);
+});
+
 test("splits RYM album heading Title By Artist into title and artist", () => {
   const response = extractRymCurrentPage({
     document: fakeDocument({
@@ -314,6 +384,26 @@ function fakeDocument(options = {}) {
     },
     querySelectorAll(selector) {
       return (selectors[selector] || []).map(createNode);
+    },
+  };
+}
+
+function fakeRow(cells) {
+  const cellNodes = cells.map((value) => ({
+    textContent: value,
+    querySelectorAll() {
+      return [];
+    },
+  }));
+  return {
+    textContent: cells.join(" "),
+    querySelector(selector) {
+      if (/position|tracknum|pos/.test(selector)) return cellNodes[0] || null;
+      if (/title/.test(selector)) return cellNodes[1] || null;
+      return null;
+    },
+    querySelectorAll(selector) {
+      return selector === "td, th" ? cellNodes : [];
     },
   };
 }
