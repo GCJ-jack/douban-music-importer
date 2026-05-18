@@ -162,6 +162,76 @@ test("extracts RYM track table rows without appending inline duplicated tracklis
   assert.equal(response.extract.tracks.some((track) => /Saving\.\.\.|rymQ\(/.test(track)), false);
 });
 
+test("keeps exact RYM inline duplicate out of final Douban draft tracks", () => {
+  const document = fakeDocument({
+    selectors: {
+      "h1": ["Tragedy By The Vehicle Birth"],
+      ".release_info tr": ["Released 1996"],
+      ".tracklist li": [
+        "A1 Crack Farm",
+        "A2 We Need to Find the Girls",
+        "A3 The Son's Room",
+        "A4 With Her Shadow",
+        "A5 Watching the Burn",
+        "B1 Floods of Tears",
+        "B2 Freak Show",
+        "B3 Goodbye",
+        "B4 Coaster",
+        "B5 The Horse",
+        "B6 The Discovery of Oxygen",
+        "A1 Crack Farm A2 We Need to Find the Girls A3 The Son's Room A4 With Her Shadow A5 Watching the Burn B1 Floods of Tears B2 Freak Show B3 Goodbye B4 Coaster B5 The Horse B6 The Discovery of Oxygen",
+        "Saving...",
+        "rymQ(function(){ track_ratings.init(); })",
+      ],
+    },
+  });
+
+  const response = extractRymCurrentPage({
+    document,
+    location: { href: "https://rateyourmusic.com/release/album/the-vehicle-birth/tragedy/" },
+  });
+  assert.equal(response.ok, true);
+  assert.deepEqual(response.extract.tracks, [
+    "A1 Crack Farm",
+    "A2 We Need to Find the Girls",
+    "A3 The Son's Room",
+    "A4 With Her Shadow",
+    "A5 Watching the Burn",
+    "B1 Floods of Tears",
+    "B2 Freak Show",
+    "B3 Goodbye",
+    "B4 Coaster",
+    "B5 The Horse",
+    "B6 The Discovery of Oxygen",
+  ]);
+
+  const metadata = normalizeRymAlbumExtract({
+    raw: response.extract,
+    pageUrl: response.extract.sourceUrl,
+    fetchedAt: "2026-05-17T00:00:00.000Z",
+  });
+  const draft = mapReleaseToDoubanDraft(metadata);
+  const draftTrackLines = draft.fields.tracks.value.split("\n");
+
+  assert.equal(draftTrackLines.length, 11);
+  assert.equal(draft.fields.tracks.value.includes("A1 Crack Farm A2 We Need"), false);
+  assert.equal(draft.fields.tracks.value.includes("Saving..."), false);
+  assert.equal(draft.fields.tracks.value.includes("rymQ("), false);
+  assert.deepEqual(draftTrackLines, [
+    "A1 Crack Farm",
+    "A2 We Need to Find the Girls",
+    "A3 The Son's Room",
+    "A4 With Her Shadow",
+    "A5 Watching the Burn",
+    "B1 Floods of Tears",
+    "B2 Freak Show",
+    "B3 Goodbye",
+    "B4 Coaster",
+    "B5 The Horse",
+    "B6 The Discovery of Oxygen",
+  ]);
+});
+
 test("splits RYM album heading Title By Artist into title and artist", () => {
   const response = extractRymCurrentPage({
     document: fakeDocument({

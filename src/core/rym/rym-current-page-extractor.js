@@ -349,7 +349,7 @@ export function extractRymCurrentPage(options = {}) {
 
     const position = normalizeTrackPosition(match[1]);
     const title = cleanTrackTitle(match[2]);
-    if (!position || !title) {
+    if (!position || !title || containsAdditionalTrackPosition(title)) {
       return null;
     }
 
@@ -368,6 +368,10 @@ export function extractRymCurrentPage(options = {}) {
 
   function isNoisyTrackText(value) {
     return /Saving\.\.\.|rymQ\(|track_ratings|Entire album/i.test(text(value));
+  }
+
+  function containsAdditionalTrackPosition(value) {
+    return /\s([A-Z]\d{1,2}|\d{1,2}[.)]|\d{2})\s+\S/.test(text(value));
   }
 
   function hasReleaseAlbumDom() {
