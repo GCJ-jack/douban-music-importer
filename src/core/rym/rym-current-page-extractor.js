@@ -29,14 +29,23 @@ export function extractRymCurrentPage(options = {}) {
     }
   }
 
-  function isRymAlbumUrl(url) {
-    if (!url) return false;
+  function supportedRymReleaseTypes() {
+    return ["album", "mixtape", "ep", "single", "comp"];
+  }
+
+  function parseRymReleasePage(url) {
+    if (!url) return { supported: false, reason: "invalid_url", releaseType: "" };
     const host = url.hostname.toLowerCase();
     const parts = url.pathname.split("/").filter(Boolean).map((part) => part.toLowerCase());
-    return ["rateyourmusic.com", "www.rateyourmusic.com"].includes(host)
-      && parts[0] === "release"
-      && parts[1] === "album"
-      && parts.length >= 4;
+    if (!["rateyourmusic.com", "www.rateyourmusic.com"].includes(host)) {
+      return { supported: false, reason: "unsupported_host", releaseType: "" };
+    }
+
+    if (parts[0] !== "release" || !supportedRymReleaseTypes().includes(parts[1]) || parts.length < 4) {
+      return { supported: false, reason: "not_rym_release_page", releaseType: parts[1] || "" };
+    }
+
+    return { supported: true, reason: "rym_release_page", releaseType: parts[1] };
   }
 
   function firstNonEmpty(...values) {
@@ -388,15 +397,17 @@ export function extractRymCurrentPage(options = {}) {
   }
 
   const url = parseUrl(locationRef?.href || "");
-  if (!isRymAlbumUrl(url)) {
+  const rymPage = parseRymReleasePage(url);
+  if (!rymPage.supported) {
     return {
       ok: false,
       code: "unsupported_rym_page",
-      message: "Current page is not a supported RYM album page.",
+      message: "Current page is not a supported RYM release page.",
       page: {
         supported: false,
-        reason: "not_rym_album_page",
+        reason: rymPage.reason,
         url: locationRef?.href || "",
+        releaseType: rymPage.releaseType,
       },
       warnings,
       extract: null,
@@ -425,6 +436,7 @@ export function extractRymCurrentPage(options = {}) {
     provider: "rym",
     sourceType: "album",
     sourceUrl: url.href,
+    releaseType: rymPage.releaseType,
     title: titleArtist.title,
     artist: titleArtist.artist,
     releaseDate: extractReleaseDate(),
@@ -442,8 +454,9 @@ export function extractRymCurrentPage(options = {}) {
     ok: true,
     page: {
       supported: true,
-      reason: "rym_album_page",
+      reason: "rym_release_page",
       url: url.href,
+      releaseType: rymPage.releaseType,
     },
     warnings,
     extract,

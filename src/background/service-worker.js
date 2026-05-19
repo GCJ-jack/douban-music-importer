@@ -222,7 +222,7 @@ async function importRymCurrentPage() {
       ok: false,
       error: {
         code: "rym_extractor_unavailable",
-        message: "Unable to read the current RYM page. Open an RYM album page and try again.",
+        message: "Unable to read the current RYM page. Open a supported RYM release page and try again.",
         details: error instanceof Error ? error.message : String(error),
       },
     };
@@ -234,7 +234,7 @@ async function importRymCurrentPage() {
       page: injection?.page || null,
       error: {
         code: injection?.code || "unsupported_rym_page",
-        message: injection?.message || "Current page is not a supported RYM album page.",
+        message: injection?.message || "Current page is not a supported RYM release page.",
       },
       warnings: injection?.warnings || [],
     };

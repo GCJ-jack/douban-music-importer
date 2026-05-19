@@ -111,6 +111,7 @@ export function createSourceInfo(sourceMetadata) {
  * @property {Object} release
  * @property {string} release.title
  * @property {string} [release.displayTitle]
+ * @property {string} [release.releaseType]
  * @property {ArtistCredit[]} release.artists
  * @property {DatePrecision} [release.releaseDate]
  * @property {string} [release.country]

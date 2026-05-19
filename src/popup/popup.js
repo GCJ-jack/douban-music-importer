@@ -123,9 +123,9 @@ function renderPageState(page, rymPage) {
   }
 
   if (rymPage.supported) {
-    elements.status.textContent = "当前 RYM album 页面支持读取可见信息。";
+    elements.status.textContent = "当前 RYM release 页面支持读取可见信息。";
     elements.pageSupport.textContent = "RYM";
-    elements.pageType.textContent = "Album";
+    elements.pageType.textContent = rymPage.releaseType ? `Release / ${rymPage.releaseType}` : "Release";
     elements.releaseId.textContent = "-";
     elements.apiStatus.textContent = "可读取当前页";
     elements.importButton.disabled = true;
@@ -134,7 +134,7 @@ function renderPageState(page, rymPage) {
     return;
   }
 
-  elements.status.textContent = "请打开 Discogs release 或 RYM album 页面。";
+  elements.status.textContent = "请打开 Discogs release 或 RYM release 页面。";
   elements.pageSupport.textContent = "不支持";
   elements.pageType.textContent = reasonText(unsupportedReason);
   elements.releaseId.textContent = "-";
@@ -462,6 +462,7 @@ function reasonText(reason) {
     not_release_page: "不是 release 页面",
     missing_release_id: "未找到 release_id",
     not_rym_album_page: "不是 RYM album 页面",
+    not_rym_release_page: "不是 RYM release 页面",
     unknown: "未知",
   };
 
@@ -476,7 +477,7 @@ function errorText(code) {
     http_error: "HTTP 错误",
     invalid_json: "响应格式错误",
     empty_response: "空响应",
-    unsupported_rym_page: "不是 RYM album 页面",
+    unsupported_rym_page: "不是 RYM release 页面",
     rym_extractor_unavailable: "RYM 读取不可用",
     no_active_tab: "未找到当前活动标签页",
   };
@@ -498,11 +499,13 @@ function parseRymAlbumUrl(input) {
   }
 
   const segments = url.pathname.split("/").filter(Boolean);
-  if (segments[0]?.toLowerCase() !== "release" || segments[1]?.toLowerCase() !== "album" || segments.length < 4) {
-    return { supported: false, reason: "not_rym_album_page" };
+  const releaseType = segments[1]?.toLowerCase() || "";
+  const supportedReleaseTypes = new Set(["album", "mixtape", "ep", "single", "comp"]);
+  if (segments[0]?.toLowerCase() !== "release" || !supportedReleaseTypes.has(releaseType) || segments.length < 4) {
+    return { supported: false, reason: "not_rym_release_page", releaseType };
   }
 
-  return { supported: true, reason: "rym_album_page" };
+  return { supported: true, reason: "rym_release_page", releaseType };
 }
 
 function fillHandoffStatusText(code) {

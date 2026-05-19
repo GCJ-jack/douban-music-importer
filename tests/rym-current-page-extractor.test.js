@@ -42,6 +42,57 @@ test("extracts visible metadata from a current RYM album page", () => {
   assert.deepEqual(response.extract.tracks, ["1 Opening", "2 夜の歌"]);
 });
 
+test("supports RYM mixtape release pages and keeps release type review-only", () => {
+  const response = extractRymCurrentPage({
+    document: fakeDocument({
+      selectors: {
+        "h1": ["BMB RVDIX by BMB Deathrow"],
+        ".release_info tr": ["Released 2024"],
+        ".tracklist tr": ["1. Intro", "2. Outro"],
+      },
+    }),
+    location: { href: "https://rateyourmusic.com/release/mixtape/bmb-deathrow/bmb-rvdix/" },
+  });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.page.reason, "rym_release_page");
+  assert.equal(response.page.releaseType, "mixtape");
+  assert.equal(response.extract.releaseType, "mixtape");
+
+  const metadata = normalizeRymAlbumExtract({
+    raw: response.extract,
+    pageUrl: response.extract.sourceUrl,
+    fetchedAt: "2026-05-17T00:00:00.000Z",
+  });
+  assert.deepEqual(validateAlbumReleaseMetadata(metadata), { ok: true, errors: [] });
+  assert.equal(metadata.release.releaseType, "mixtape");
+  assert.deepEqual(metadata.provenance["release.releaseType"], ["raw.releaseType"]);
+  assert.equal(metadata.warnings.some((warning) => warning.field === "release.releaseType"), true);
+
+  const draft = mapReleaseToDoubanDraft(metadata);
+  assert.deepEqual(validateDoubanMusicDraft(draft), { ok: true, errors: [] });
+  assert.equal(draft.unmapped.some((field) => field.sourceField === "release.releaseType" && field.value === "mixtape"), true);
+  assert.equal(draft.fields.media, undefined);
+
+  let reviewState = createDraftReviewState({
+    draft,
+    sourceSummary: { provider: "rym", sourceType: "album" },
+    warnings: metadata.warnings,
+    validation: {},
+    now: "2026-05-17T00:00:00.000Z",
+  });
+  for (const fieldName of ["title", "artists", "releaseDate", "tracks", "externalLinks"]) {
+    reviewState = markDraftFieldConfirmed(reviewState, fieldName, {
+      now: "2026-05-17T00:00:00.000Z",
+    });
+  }
+
+  const fillPayload = getFillableDraftFields(reviewState);
+  assert.deepEqual(Object.keys(fillPayload), ["title", "artists", "releaseDate", "tracks", "externalLinks"]);
+  assert.equal(fillPayload.releaseType, undefined);
+  assert.equal(fillPayload.media, undefined);
+});
+
 test("filters RYM track rating widget and script noise from tracklist", () => {
   const document = fakeDocument({
     selectors: {
@@ -295,14 +346,14 @@ test("rejects non-RYM album pages without reading as supported", () => {
 
   assert.equal(response.ok, false);
   assert.equal(response.code, "unsupported_rym_page");
-  assert.equal(response.page.reason, "not_rym_album_page");
+  assert.equal(response.page.reason, "not_rym_release_page");
 });
 
 test("rejects RYM artist and person pages as unsupported", () => {
   for (const href of [
     "https://rateyourmusic.com/artist/artist-name/",
     "https://rateyourmusic.com/person/person-name/",
-    "https://rateyourmusic.com/release/single/artist-name/test-single/",
+    "https://rateyourmusic.com/release/live/artist-name/test-live/",
   ]) {
     const response = extractRymCurrentPage({
       document: fakeDocument({
@@ -318,6 +369,21 @@ test("rejects RYM artist and person pages as unsupported", () => {
     assert.equal(response.ok, false);
     assert.equal(response.code, "unsupported_rym_page");
   }
+});
+
+test("rejects supported RYM release URLs when DOM is not a release page", () => {
+  const response = extractRymCurrentPage({
+    document: fakeDocument({
+      selectors: {
+        "h1": ["BMB Deathrow"],
+        ".release_info tr": ["RYM Rating 3.80 Ranked #12"],
+      },
+    }),
+    location: { href: "https://rateyourmusic.com/release/mixtape/bmb-deathrow/bmb-rvdix/" },
+  });
+
+  assert.equal(response.ok, false);
+  assert.equal(response.code, "unsupported_dom");
 });
 
 test("rejects release album URLs without matching album release DOM", () => {

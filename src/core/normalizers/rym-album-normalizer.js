@@ -16,6 +16,7 @@ export function normalizeRymAlbumExtract(sourceMetadata) {
   const title = cleanString(raw.title);
   const artist = cleanString(raw.artist);
   const releaseDate = normalizeReleaseDate(raw.releaseDate, warnings);
+  const releaseType = cleanString(raw.releaseType);
   const genres = cleanStringArray(raw.genres);
   const descriptors = cleanStringArray(raw.descriptors);
   const tracklist = normalizeTracklist(raw.tracks);
@@ -35,9 +36,17 @@ export function normalizeRymAlbumExtract(sourceMetadata) {
     }));
   }
 
+  if (releaseType) {
+    warnings.push(createImportWarning(`RYM release type is ${releaseType}; keep it review-only for v0.2.`, {
+      field: "release.releaseType",
+      level: "info",
+    }));
+  }
+
   setField(provenance, confidence, "release.title", ["raw.title"], title ? "medium" : "low");
   setField(provenance, confidence, "release.artists", ["raw.artist"], artist ? "medium" : "low");
   setField(provenance, confidence, "release.releaseDate", ["raw.releaseDate"], releaseDate ? "medium" : "low");
+  setField(provenance, confidence, "release.releaseType", ["raw.releaseType"], releaseType ? "medium" : "low");
   setField(provenance, confidence, "release.genres", ["raw.genres"], genres.length ? "medium" : "low");
   setField(provenance, confidence, "release.styles", ["raw.descriptors"], descriptors.length ? "medium" : "low");
   setField(provenance, confidence, "release.tracklist", ["raw.tracks"], tracklist.length ? "medium" : "low");
@@ -56,6 +65,7 @@ export function normalizeRymAlbumExtract(sourceMetadata) {
     release: {
       title,
       displayTitle: title || undefined,
+      releaseType: releaseType || undefined,
       artists: artist ? [{ name: artist, role: "main" }] : [],
       releaseDate,
       labels: [],

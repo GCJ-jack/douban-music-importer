@@ -210,6 +210,14 @@ function hasNestedTracks(tracklist) {
 }
 
 function collectUnmapped(unmapped, release) {
+  if (release.releaseType) {
+    unmapped.push({
+      sourceField: "release.releaseType",
+      value: release.releaseType,
+      reason: "RYM release type is review-only and must not auto-fill Douban custom selects.",
+    });
+  }
+
   if (release.country) {
     unmapped.push({
       sourceField: "release.country",
