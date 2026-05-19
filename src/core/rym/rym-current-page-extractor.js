@@ -296,7 +296,8 @@ export function extractRymCurrentPage(options = {}) {
     }
 
     const rows = Array.from(container?.querySelectorAll?.("tr, li, .track") || []);
-    return rows.some((row) => parseStructuredTrackRow(row));
+    return rows.some((row) => parseStructuredTrackRow(row)) ||
+      parseTrackSequenceText(container?.textContent).length > 0;
   }
 
   function extractStructuredRowsFromContainer(container) {
@@ -494,8 +495,15 @@ export function extractRymCurrentPage(options = {}) {
   }
 
   function cleanTrackTitle(value) {
-    const cleaned = text(value).replace(/\s+\d{1,2}:\d{2}$/, "").trim();
+    const cleaned = removeTrailingLyricsLink(text(value).replace(/\s+\d{1,2}:\d{2}$/, "").trim());
     return cleaned && !isNoisyTrackText(cleaned) ? cleaned : "";
+  }
+
+  function removeTrailingLyricsLink(value) {
+    return text(value)
+      .replace(/([^\s])lyrics$/, "$1")
+      .replace(/\s+lyrics$/, "")
+      .trim();
   }
 
   function isNoisyTrackText(value) {

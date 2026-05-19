@@ -93,6 +93,83 @@ test("supports RYM mixtape release pages and keeps release type review-only", ()
   assert.equal(fillPayload.media, undefined);
 });
 
+test("cleans RYM lyrics link pollution and deduplicates standard album tracklist", () => {
+  const tracks = [
+    ["1", "Pink Diamond"],
+    ["2", "Forever"],
+    ["3", "Claws"],
+    ["4", "7 Years"],
+    ["5", "Detonate"],
+    ["6", "Enemy"],
+    ["7", "I Finally Understand"],
+    ["8", "C2.0"],
+    ["9", "Party 4 U"],
+    ["10", "Anthems"],
+    ["11", "Visions"],
+  ];
+  const trackRows = tracks.flatMap(([position, title]) => [
+    fakeRow([position, `${title}lyrics`]),
+    fakeRow([position, title]),
+  ]);
+  const document = fakeDocument({
+    selectors: {
+      "h1": ["How I'm Feeling Now"],
+      "a[href*='/artist/']": ["Charli XCX"],
+      ".release_info tr": ["Released 15 May 2020"],
+      ".tracklist": [fakeContainer(trackRows)],
+    },
+  });
+
+  const response = extractRymCurrentPage({
+    document,
+    location: { href: "https://rateyourmusic.com/release/album/charli-xcx/how-im-feeling-now/" },
+  });
+
+  assert.equal(response.ok, true);
+  assert.deepEqual(response.extract.tracks, tracks.map(([position, title]) => `${position} ${title}`));
+  assert.equal(response.extract.tracks.length, 11);
+  assert.equal(response.extract.tracks.some((track) => /lyrics/i.test(track)), false);
+});
+
+test("reads RYM EP tracklist from sequence-only tracklist container", () => {
+  const document = fakeDocument({
+    selectors: {
+      "h1": ["Legalize Nuclear Bombs by DJ Smokey"],
+      ".release_info tr": ["Released 2014"],
+      ".tracklist": [
+        fakeContainerWithText([], [
+          "1",
+          "Intro",
+          "1:20",
+          "2",
+          "Legalize Nuclear Bombs",
+          "2:45",
+          "3",
+          "Outro",
+          "1:58",
+          "Saving...",
+          "rymQ(function(){ track_ratings.init(); })",
+          "track_ratings",
+        ].join("\n")),
+      ],
+    },
+  });
+
+  const response = extractRymCurrentPage({
+    document,
+    location: { href: "https://rateyourmusic.com/release/ep/dj-smokey/legalize-nuclear-bombs/" },
+  });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.extract.releaseType, "ep");
+  assert.deepEqual(response.extract.tracks, [
+    "1 Intro",
+    "2 Legalize Nuclear Bombs",
+    "3 Outro",
+  ]);
+  assert.equal(response.extract.tracks.some((track) => /Saving|rymQ\(|track_ratings/i.test(track)), false);
+});
+
 test("filters RYM track rating widget and script noise from tracklist", () => {
   const document = fakeDocument({
     selectors: {
