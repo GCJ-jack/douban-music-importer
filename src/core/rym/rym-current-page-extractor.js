@@ -266,15 +266,13 @@ export function extractRymCurrentPage(options = {}) {
 
   function extractMainTracklistContainerTracks() {
     const containers = mainTracklistContainers();
+    const parsedTracks = [];
 
     for (const container of containers) {
-      const tracks = extractStructuredRowsFromContainer(container);
-      if (tracks.length > 0) {
-        return tracks;
-      }
+      parsedTracks.push(...extractStructuredRowsFromContainer(container));
     }
 
-    return [];
+    return orderTracks(dedupeParsedTracks(parsedTracks));
   }
 
   function mainTracklistContainers() {
@@ -310,7 +308,8 @@ export function extractRymCurrentPage(options = {}) {
       if (parsed) tracks.push(parsed);
     }
 
-    return dedupeTracks(tracks);
+    tracks.push(...parseTrackSequenceText(container?.textContent));
+    return tracks;
   }
 
   function parseStructuredTrackRow(row) {
@@ -361,6 +360,10 @@ export function extractRymCurrentPage(options = {}) {
   }
 
   function dedupeTracks(parsedTracks) {
+    return dedupeParsedTracks(parsedTracks).map((track) => `${track.position} ${track.title}`);
+  }
+
+  function dedupeParsedTracks(parsedTracks) {
     const seen = new Set();
     const tracks = [];
 
@@ -370,14 +373,99 @@ export function extractRymCurrentPage(options = {}) {
       const key = `${parsed.position.toLowerCase()}\u0000${parsed.title.toLowerCase()}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      tracks.push(`${parsed.position} ${parsed.title}`);
+      tracks.push(parsed);
     }
 
     return tracks;
   }
 
+  function orderTracks(parsedTracks) {
+    if (!parsedTracks.length || !parsedTracks.every((track) => /^\d+$/.test(track.position))) {
+      return parsedTracks.map((track) => `${track.position} ${track.title}`);
+    }
+
+    return [...parsedTracks]
+      .sort((left, right) => Number(left.position) - Number(right.position))
+      .map((track) => `${track.position} ${track.title}`);
+  }
+
   function splitTrackContainerText(values) {
     return values.flatMap((value) => String(value || "").split(/\n+/).map(text).filter(Boolean));
+  }
+
+  function parseTrackSequenceText(value) {
+    const lines = String(value || "")
+      .split(/\n+/)
+      .map(text)
+      .filter(Boolean);
+    const tracks = [];
+
+    for (let index = 0; index < lines.length; index += 1) {
+      const line = lines[index];
+      if (shouldSkipTrackSequenceLine(line)) {
+        continue;
+      }
+
+      const combined = parseTrack(line);
+      if (combined) {
+        tracks.push(combined);
+        continue;
+      }
+
+      const position = normalizeTrackPosition(line);
+      if (position) {
+        const titleIndex = nextTrackTitleLineIndex(lines, index + 1);
+        if (titleIndex !== -1) {
+          const title = cleanTrackTitle(lines[titleIndex]);
+          if (title && !containsAdditionalTrackPosition(title)) {
+            tracks.push({ position, title });
+            index = titleIndex;
+          }
+        }
+        continue;
+      }
+
+      if (index === 0 && looksLikeTrackTitle(line) && isDurationLine(lines[index + 1]) && normalizeTrackPosition(lines[index + 2]) === "2") {
+        tracks.push({ position: "1", title: cleanTrackTitle(line) });
+      }
+    }
+
+    return tracks;
+  }
+
+  function nextTrackTitleLineIndex(lines, startIndex) {
+    for (let index = startIndex; index < lines.length; index += 1) {
+      const line = lines[index];
+      if (shouldSkipTrackSequenceLine(line)) {
+        continue;
+      }
+
+      if (normalizeTrackPosition(line)) {
+        return -1;
+      }
+
+      return looksLikeTrackTitle(line) ? index : -1;
+    }
+
+    return -1;
+  }
+
+  function shouldSkipTrackSequenceLine(value) {
+    const line = text(value);
+    return !line || isNoisyTrackText(line) || isCreditsOrRatingText(line) || isDurationLine(line) || isSupplementalCreditLine(line);
+  }
+
+  function isDurationLine(value) {
+    return /^\d{1,2}:\d{2}$/.test(text(value));
+  }
+
+  function isSupplementalCreditLine(value) {
+    return /^(feat\.?|featuring|prod\.?|produced by)\b/i.test(text(value));
+  }
+
+  function looksLikeTrackTitle(value) {
+    const line = cleanTrackTitle(value);
+    return Boolean(line && !normalizeTrackPosition(line) && !containsAdditionalTrackPosition(line));
   }
 
   function parseTrack(value) {

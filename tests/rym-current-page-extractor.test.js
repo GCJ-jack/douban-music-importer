@@ -311,6 +311,162 @@ test("reads complete RYM main track listing in page order before credits fragmen
   assert.equal(response.extract.tracks.some((track) => track.includes("10 BMB Deathrow - Track 10 11")), false);
 });
 
+test("merges split RYM track listing containers before credits and fallback fragments", () => {
+  const tracks = [
+    ["1", "SpaceGhostPurrp aka Purrple Haze - King of Miami"],
+    ["2", "BMB Deathrow - Track 2"],
+    ["3", "BMB Deathrow - Track 3"],
+    ["4", "BMB Deathrow - Track 4"],
+    ["5", "BMB Deathrow - Track 5"],
+    ["6", "BMB Deathrow - Track 6"],
+    ["7", "BMB Deathrow - Track 7"],
+    ["8", "BMB Deathrow - Track 8"],
+    ["9", "Chxpo - Knock It Off"],
+    ["10", "Slim Guerilla - Ice Cold Lady Pimp"],
+    ["11", "BMB Deathrow - Track 11"],
+    ["12", "BMB Deathrow - Track 12"],
+    ["13", "BMB Deathrow - Track 13"],
+    ["14", "BMB Deathrow - Track 14"],
+    ["15", "BMB Deathrow - Track 15"],
+    ["16", "BMB Deathrow - Track 16"],
+    ["17", "BMB Deathrow - Track 17"],
+    ["18", "BMB Deathrow - Track 18"],
+    ["19", "BMB Deathrow - Track 19"],
+    ["20", "BMB Deathrow - Track 20"],
+    ["21", "BMB Deathrow - Track 21"],
+    ["22", "BMB Deathrow - Track 22"],
+    ["23", "BMB Deathrow - Track 23"],
+    ["24", "BMB Deathrow - Track 24"],
+    ["25", "SpaceGhostPurrp aka Purrple Haze - Life of a Scorpio Moon"],
+  ];
+  const firstContainer = fakeContainer(tracks.slice(0, 9).map(([position, title]) => fakeRow([position, title])));
+  const secondContainer = fakeContainer(tracks.slice(9).map(([position, title]) => fakeRow([position, title])));
+  const creditsContainer = fakeContainer(tracks.slice(9, 12).map(([position, title]) => fakeRow([
+    position,
+    title,
+    "producer DJ Example",
+    "expanded credits",
+    "track_ratings",
+  ])));
+
+  const document = fakeDocument({
+    selectors: {
+      "h1": ["BMB RVDIX by BMB Deathrow"],
+      ".release_info tr": ["Released 2024"],
+      ".tracklist": [secondContainer, firstContainer],
+      ".track_listing": [creditsContainer],
+      ".tracklist li": [
+        "10 Slim Guerilla - Ice Cold Lady Pimp",
+        "11 BMB Deathrow - Track 11",
+        "10 Slim Guerilla - Ice Cold Lady Pimp 11 BMB Deathrow - Track 11",
+        "Saving...",
+        "rymQ(function(){ track_ratings.init(); })",
+      ],
+    },
+  });
+
+  const response = extractRymCurrentPage({
+    document,
+    location: { href: "https://rateyourmusic.com/release/mixtape/bmb-deathrow/bmb-rvdix/" },
+  });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.extract.tracks.length, 25);
+  assert.equal(response.extract.tracks[0], "1 SpaceGhostPurrp aka Purrple Haze - King of Miami");
+  assert.equal(response.extract.tracks[8], "9 Chxpo - Knock It Off");
+  assert.equal(response.extract.tracks[9], "10 Slim Guerilla - Ice Cold Lady Pimp");
+  assert.equal(response.extract.tracks[24], "25 SpaceGhostPurrp aka Purrple Haze - Life of a Scorpio Moon");
+  assert.deepEqual(response.extract.tracks, tracks.map(([position, title]) => `${position} ${title}`));
+  assert.equal(response.extract.tracks.some((track) => /producer|expanded credits|track_ratings|Saving|rymQ\(/i.test(track)), false);
+  assert.equal(response.extract.tracks.some((track) => track.includes("10 Slim Guerilla - Ice Cold Lady Pimp 11")), false);
+});
+
+test("recovers first RYM track when sequence text omits the leading 1 position", () => {
+  const tracks = [
+    ["1", "SpaceGhostPurrp aka Purrple Haze - King of Miami"],
+    ["2", "Chxpo x SpaceGhostPurrp aka Purrple Haze - Way Past Savage"],
+    ["3", "Chxpo x Black Kray - BMB2K16"],
+    ["4", "SpaceGhostPurrp aka Purrple Haze - Boss Mobb RBMG"],
+    ["5", "Chxpo x Black Kray - So Icey Goth La Flexico's"],
+    ["6", "Jha Jupiter - Goodmorningg"],
+    ["7", "Chxpo - Cookin Yams"],
+    ["8", "SpaceGhostPurrp aka Purrple Haze - Geeked"],
+    ["9", "Chxpo - Knock It Off"],
+    ["10", "Slim Guerilla - Ice Cold Lady Pimp"],
+    ["11", "SpaceGhostPurrp aka Purrple Haze - Zips"],
+    ["12", "Taco El - Locc'd Out"],
+    ["13", "Taco El - No Trust"],
+    ["14", "Fr3ddy Thr3e - Bros on Go"],
+    ["15", "Lil Rari - Dope Runna 2k16"],
+    ["16", "TERRORT - Grew Up"],
+    ["17", "SpaceGhostPurrp aka Purrple Haze - Get It"],
+    ["18", "Taco El - Don't Fucc With Niggas"],
+    ["19", "Chxpo - Blxxdy Freestyle"],
+    ["20", "Fr3ddy Thr3e x Chxpo - Blxxdy Emoji's"],
+    ["21", "LZA - Venemous"],
+    ["22", "SCXNDORXMBO - Dafuq Is a Yatchi"],
+    ["23", "Lil Rari - Slidin"],
+    ["24", "MajinBlxxdy - I'm Blxxdy"],
+    ["25", "SpaceGhostPurrp aka Purrple Haze - Life of a Scorpio Moon"],
+  ];
+  const cleanRowsFromTen = tracks.slice(9).map(([position, title]) => fakeRow([position, title]));
+  const sequenceText = [
+    "SpaceGhostPurrp aka Purrple Haze - King of Miami",
+    "9:09",
+    "2",
+    "Chxpo x SpaceGhostPurrp aka Purrple Haze - Way Past Savage",
+    "3:08",
+    "3",
+    "Chxpo x Black Kray - BMB2K16",
+    "3:10",
+    "4",
+    "SpaceGhostPurrp aka Purrple Haze - Boss Mobb RBMG",
+    "2:51",
+    "5",
+    "Chxpo x Black Kray - So Icey Goth La Flexico's",
+    "4:57",
+    "6",
+    "Jha Jupiter - Goodmorningg",
+    "3:35",
+    "7",
+    "Chxpo - Cookin Yams",
+    "3:33",
+    "8",
+    "SpaceGhostPurrp aka Purrple Haze - Geeked",
+    "2:17",
+    "9",
+    "Chxpo - Knock It Off",
+    "4:21",
+    "feat. Young Hoe",
+    ...tracks.slice(9).flatMap(([position, title]) => [position, title, "2:50"]),
+    "Saving...",
+    "rymQ(function(){ track_ratings.init(); })",
+    "track_ratings",
+  ].join("\n");
+
+  const document = fakeDocument({
+    selectors: {
+      "h1": ["BMB RVDIX by BMB Deathrow"],
+      ".release_info tr": ["Released 2024"],
+      ".tracklist": [fakeContainerWithText(cleanRowsFromTen, sequenceText)],
+    },
+  });
+
+  const response = extractRymCurrentPage({
+    document,
+    location: { href: "https://rateyourmusic.com/release/mixtape/bmb-deathrow/bmb-rvdix/" },
+  });
+
+  assert.equal(response.ok, true);
+  assert.deepEqual(response.extract.tracks, tracks.map(([position, title]) => `${position} ${title}`));
+  assert.equal(response.extract.tracks.length, 25);
+  assert.equal(response.extract.tracks[0], "1 SpaceGhostPurrp aka Purrple Haze - King of Miami");
+  assert.equal(response.extract.tracks[8], "9 Chxpo - Knock It Off");
+  assert.equal(response.extract.tracks[9], "10 Slim Guerilla - Ice Cold Lady Pimp");
+  assert.equal(response.extract.tracks[24], "25 SpaceGhostPurrp aka Purrple Haze - Life of a Scorpio Moon");
+  assert.equal(response.extract.tracks.some((track) => /feat\.|Saving|rymQ\(|track_ratings/i.test(track)), false);
+});
+
 test("splits RYM album heading Title By Artist into title and artist", () => {
   const response = extractRymCurrentPage({
     document: fakeDocument({
@@ -575,6 +731,15 @@ function fakeRow(cells) {
 function fakeContainer(rows) {
   return {
     textContent: rows.map((row) => row.textContent).join("\n"),
+    querySelectorAll(selector) {
+      return selector === "tr, li, .track" ? rows : [];
+    },
+  };
+}
+
+function fakeContainerWithText(rows, textContent) {
+  return {
+    textContent,
     querySelectorAll(selector) {
       return selector === "tr, li, .track" ? rows : [];
     },
