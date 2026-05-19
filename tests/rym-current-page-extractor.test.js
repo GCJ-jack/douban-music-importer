@@ -167,25 +167,7 @@ test("extracts RYM track table rows without appending inline duplicated tracklis
     selectors: {
       "h1": ["Tragedy By The Vehicle Birth"],
       ".release_info tr": ["Released 1996"],
-      ".tracklist tr": trackRows,
-      ".tracklist": [
-        [
-          "A1 Crack Farm",
-          "A2 We Need to Find the Girls",
-          "A3 The Son's Room",
-          "A4 With Her Shadow",
-          "A5 Watching the Burn",
-          "B1 Floods of Tears",
-          "B2 Freak Show",
-          "B3 Goodbye",
-          "B4 Coaster",
-          "B5 The Horse",
-          "B6 The Discovery of Oxygen",
-          "A1 Crack Farm A2 We Need to Find the Girls A3 The Son's Room",
-          "Saving...",
-          "rymQ(function(){ track_ratings.init(); })",
-        ].join("\n"),
-      ],
+      ".tracklist": [fakeContainer(trackRows)],
     },
   });
 
@@ -281,6 +263,52 @@ test("keeps exact RYM inline duplicate out of final Douban draft tracks", () => 
     "B5 The Horse",
     "B6 The Discovery of Oxygen",
   ]);
+});
+
+test("reads complete RYM main track listing in page order before credits fragments", () => {
+  const tracks = Array.from({ length: 25 }, (_, index) => {
+    const position = String(index + 1);
+    return [position, `BMB Deathrow - Track ${position}`];
+  });
+  const mainRows = tracks.map(([position, title]) => fakeRow([position, title]));
+  const creditsRows = tracks.slice(9, 14).map(([position, title]) => fakeRow([
+    position,
+    title,
+    "producer DJ Example",
+    "expanded credits",
+    "track_ratings",
+  ]));
+
+  const document = fakeDocument({
+    selectors: {
+      "h1": ["BMB RVDIX by BMB Deathrow"],
+      ".release_info tr": ["Released 2024"],
+      ".tracklist": [fakeContainer(mainRows)],
+      ".track_listing": [fakeContainer(creditsRows)],
+      ".tracklist li": [
+        "10 BMB Deathrow - Track 10",
+        "11 BMB Deathrow - Track 11",
+        "10 BMB Deathrow - Track 10 11 BMB Deathrow - Track 11",
+        "Saving...",
+        "rymQ(function(){ track_ratings.init(); })",
+      ],
+    },
+  });
+
+  const response = extractRymCurrentPage({
+    document,
+    location: { href: "https://rateyourmusic.com/release/mixtape/bmb-deathrow/bmb-rvdix/" },
+  });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.extract.tracks.length, 25);
+  assert.deepEqual(response.extract.tracks, tracks.map(([position, title]) => `${position} ${title}`));
+  assert.equal(response.extract.tracks[0], "1 BMB Deathrow - Track 1");
+  assert.equal(response.extract.tracks[8], "9 BMB Deathrow - Track 9");
+  assert.equal(response.extract.tracks[9], "10 BMB Deathrow - Track 10");
+  assert.equal(response.extract.tracks[24], "25 BMB Deathrow - Track 25");
+  assert.equal(response.extract.tracks.some((track) => /producer|expanded credits|track_ratings|Saving|rymQ\(/i.test(track)), false);
+  assert.equal(response.extract.tracks.some((track) => track.includes("10 BMB Deathrow - Track 10 11")), false);
 });
 
 test("splits RYM album heading Title By Artist into title and artist", () => {
@@ -540,6 +568,15 @@ function fakeRow(cells) {
     },
     querySelectorAll(selector) {
       return selector === "td, th" ? cellNodes : [];
+    },
+  };
+}
+
+function fakeContainer(rows) {
+  return {
+    textContent: rows.map((row) => row.textContent).join("\n"),
+    querySelectorAll(selector) {
+      return selector === "tr, li, .track" ? rows : [];
     },
   };
 }

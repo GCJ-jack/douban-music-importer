@@ -234,24 +234,22 @@ export function extractRymCurrentPage(options = {}) {
   }
 
   function extractTracks() {
-    const trackSelectors = [
-      ".tracklist tr",
-      ".tracklist .track",
-      ".track_listing tr",
-      ".section_tracklisting tr",
-      "[class*='tracklist'] tr",
-      "[class*='track_listing'] tr",
-    ];
-    const structuredTracks = extractStructuredTrackRows(trackSelectors);
-    if (structuredTracks.length > 0) {
-      return structuredTracks;
+    const mainContainerTracks = extractMainTracklistContainerTracks();
+    if (mainContainerTracks.length > 0) {
+      return mainContainerTracks;
     }
 
     const fallbackSelectors = [
+      ".tracklist tr",
+      ".tracklist .track",
       ".tracklist li",
+      ".track_listing tr",
       ".track_listing li",
+      ".section_tracklisting tr",
       ".section_tracklisting li",
+      "[class*='tracklist'] tr",
       "[class*='tracklist'] li",
+      "[class*='track_listing'] tr",
     ];
     const containerSelectors = [
       ".tracklist",
@@ -266,8 +264,45 @@ export function extractRymCurrentPage(options = {}) {
     return dedupeTracks(candidates.map(parseTrack).filter(Boolean));
   }
 
-  function extractStructuredTrackRows(selectors) {
-    const rows = selectors.flatMap((selector) => Array.from(documentRef?.querySelectorAll?.(selector) || []));
+  function extractMainTracklistContainerTracks() {
+    const containers = mainTracklistContainers();
+
+    for (const container of containers) {
+      const tracks = extractStructuredRowsFromContainer(container);
+      if (tracks.length > 0) {
+        return tracks;
+      }
+    }
+
+    return [];
+  }
+
+  function mainTracklistContainers() {
+    const selectors = [
+      ".tracklist",
+      ".track_listing",
+      ".section_tracklisting",
+      "[class*='tracklist']",
+      "[class*='track_listing']",
+    ];
+
+    return dedupeNodes(selectors
+      .flatMap((selector) => Array.from(documentRef?.querySelectorAll?.(selector) || []))
+      .filter(isMainTracklistContainer));
+  }
+
+  function isMainTracklistContainer(container) {
+    const containerText = text(container?.textContent);
+    if (!containerText || isCreditsOrRatingText(containerText)) {
+      return false;
+    }
+
+    const rows = Array.from(container?.querySelectorAll?.("tr, li, .track") || []);
+    return rows.some((row) => parseStructuredTrackRow(row));
+  }
+
+  function extractStructuredRowsFromContainer(container) {
+    const rows = Array.from(container?.querySelectorAll?.("tr, li, .track") || []);
     const tracks = [];
 
     for (const row of rows) {
@@ -280,7 +315,7 @@ export function extractRymCurrentPage(options = {}) {
 
   function parseStructuredTrackRow(row) {
     const rowText = text(row?.textContent);
-    if (!rowText) {
+    if (!rowText || isCreditsOrRatingText(rowText)) {
       return null;
     }
 
@@ -307,7 +342,7 @@ export function extractRymCurrentPage(options = {}) {
       if (parsed) return parsed;
     }
 
-    return parseTrack(rowText);
+    return isNoisyTrackText(rowText) ? null : parseTrack(rowText);
   }
 
   function firstStructuredCellText(row, selectors) {
@@ -379,8 +414,16 @@ export function extractRymCurrentPage(options = {}) {
     return /Saving\.\.\.|rymQ\(|track_ratings|Entire album/i.test(text(value));
   }
 
+  function isCreditsOrRatingText(value) {
+    return /\b(expanded credits?|producer|produced by|ratings?|rate this|write a review)\b/i.test(text(value));
+  }
+
   function containsAdditionalTrackPosition(value) {
     return /\s([A-Z]\d{1,2}|\d{1,2}[.)]|\d{2})\s+\S/.test(text(value));
+  }
+
+  function dedupeNodes(nodes) {
+    return [...new Set(nodes)];
   }
 
   function hasReleaseAlbumDom() {
