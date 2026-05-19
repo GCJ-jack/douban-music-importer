@@ -184,6 +184,10 @@ function sourceAttribution(source) {
     return "Metadata extracted from the current Rate Your Music album page. Please review before submitting to Douban.";
   }
 
+  if (source?.provider === "discogs" && source?.sourceType === "master") {
+    return `Album-level metadata imported from Discogs master ${source?.id || ""}. Please review before submitting to Douban.`;
+  }
+
   return `Metadata imported from Discogs release ${source?.id || ""}. Please review before submitting to Douban.`;
 }
 

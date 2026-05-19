@@ -1,4 +1,4 @@
-import { fetchDiscogsRelease, DiscogsApiError } from "../core/discogs-api-client.js";
+import { fetchDiscogsMaster, fetchDiscogsRelease, DiscogsApiError } from "../core/discogs-api-client.js";
 import { parseDiscogsReleaseUrl } from "../core/discogs-url-parser.js";
 import { mapReleaseToDoubanDraft } from "../core/mappers/douban-draft-mapper.js";
 import { normalizeDiscogsRelease } from "../core/normalizers/discogs-release-normalizer.js";
@@ -137,12 +137,14 @@ async function importDiscogsRelease(url) {
       page,
       error: {
         code: page.reason,
-        message: "Current page is not a supported Discogs release page.",
+        message: "Current page is not a supported Discogs release or master page.",
       },
     };
   }
 
-  const metadata = await fetchDiscogsRelease(page.releaseId);
+  const metadata = page.sourceType === "master"
+    ? await fetchDiscogsMaster(page.masterId)
+    : await fetchDiscogsRelease(page.releaseId);
   const sourceMetadata = {
     ...metadata,
     pageUrl: url,
@@ -162,6 +164,7 @@ async function importDiscogsRelease(url) {
       provider: sourceMetadata.provider,
       sourceType: sourceMetadata.sourceType,
       releaseId: sourceMetadata.releaseId,
+      masterId: sourceMetadata.masterId,
       apiUrl: sourceMetadata.apiUrl,
       fetchedAt: sourceMetadata.fetchedAt,
       title: typeof sourceMetadata.raw.title === "string" ? sourceMetadata.raw.title : null,
@@ -181,6 +184,7 @@ async function importDiscogsRelease(url) {
       provider: sourceMetadata.provider,
       sourceType: sourceMetadata.sourceType,
       releaseId: sourceMetadata.releaseId,
+      masterId: sourceMetadata.masterId,
       apiUrl: sourceMetadata.apiUrl,
       fetchedAt: sourceMetadata.fetchedAt,
       title: typeof sourceMetadata.raw.title === "string" ? sourceMetadata.raw.title : null,

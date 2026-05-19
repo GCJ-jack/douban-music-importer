@@ -1,5 +1,6 @@
 import { parseDiscogsReleaseUrl } from "../core/discogs-url-parser.js";
 import {
+  formatReviewSourceSummary,
   listReviewFields,
   summarizeDraftReviewState,
   summarizeReviewReadiness,
@@ -110,11 +111,13 @@ function renderPageState(page, rymPage) {
   elements.releaseIdRow.hidden = true;
 
   if (page.supported) {
-    elements.status.textContent = "当前 Discogs release 页面支持导入。";
+    elements.status.textContent = page.sourceType === "master"
+      ? "当前 Discogs master 页面支持导入 album-level metadata。"
+      : "当前 Discogs release 页面支持导入。";
     elements.pageSupport.textContent = "Discogs";
-    elements.pageType.textContent = "Release";
+    elements.pageType.textContent = page.sourceType === "master" ? "Master" : "Release";
     elements.releaseIdRow.hidden = false;
-    elements.releaseId.textContent = page.releaseId || "-";
+    elements.releaseId.textContent = page.releaseId || page.masterId || "-";
     elements.apiStatus.textContent = "未请求";
     elements.importButton.hidden = false;
     elements.importButton.disabled = false;
@@ -134,7 +137,7 @@ function renderPageState(page, rymPage) {
     return;
   }
 
-  elements.status.textContent = "请打开 Discogs release 或 RYM release 页面。";
+  elements.status.textContent = "请打开 Discogs release/master 或 RYM release 页面。";
   elements.pageSupport.textContent = "不支持";
   elements.pageType.textContent = reasonText(unsupportedReason);
   elements.releaseId.textContent = "-";
@@ -146,7 +149,9 @@ function renderPageState(page, rymPage) {
 async function importCurrentRelease() {
   elements.importButton.disabled = true;
   elements.apiStatus.textContent = "请求中";
-  elements.resultMessage.textContent = "正在请求当前 release 的 Discogs 官方 API…";
+  elements.resultMessage.textContent = currentPage.sourceType === "master"
+    ? "正在请求当前 master 的 Discogs 官方 API…"
+    : "正在请求当前 release 的 Discogs 官方 API…";
 
   const response = await chrome.runtime.sendMessage({
     type: "IMPORT_DISCOGS_RELEASE",
@@ -165,7 +170,9 @@ async function importCurrentRelease() {
   const summary = response.metadataSummary;
   elements.apiStatus.textContent = "已保存 raw source metadata";
   elements.resultMessage.textContent = [
-    `Release ${summary.releaseId} 获取成功。`,
+    summary.sourceType === "master"
+      ? `Master ${summary.masterId} 获取成功。`
+      : `Release ${summary.releaseId} 获取成功。`,
     summary.title ? `标题：${summary.title}。` : "",
     `已生成豆瓣草稿摘要：${summary.draftFieldCount} 个字段，${summary.draftNeedsReviewCount} 个需复核，${summary.draftUnmappedCount} 个未映射，${summary.warningCount} 个 warning。`,
     summary.normalizedValid && summary.draftValid ? "Schema 校验通过。" : "Schema 校验未通过，请检查导入数据。",
@@ -237,9 +244,7 @@ function renderDraftReviewState(reviewState) {
   elements.draftConfirmedCount.textContent = String(summary.confirmedCount);
   elements.draftReviewCount.textContent = String(summary.needsReviewCount);
   elements.draftUnmappedCount.textContent = String(summary.unmappedCount);
-  elements.draftSource.textContent = reviewState.draft.sourceUrl
-    ? `来源：${reviewState.draft.sourceUrl}`
-    : reviewState.draft.attribution;
+  elements.draftSource.textContent = formatReviewSourceSummary(reviewState);
 
   elements.draftFields.replaceChildren(...listReviewFields(reviewState).map(renderDraftField));
   renderFillReadiness(reviewState);
@@ -460,7 +465,9 @@ function reasonText(reason) {
     invalid_url: "URL 无效",
     unsupported_host: "不是 Discogs",
     not_release_page: "不是 release 页面",
+    not_discogs_release_or_master_page: "不是 Discogs release/master 页面",
     missing_release_id: "未找到 release_id",
+    missing_master_id: "未找到 master_id",
     not_rym_album_page: "不是 RYM album 页面",
     not_rym_release_page: "不是 RYM release 页面",
     unknown: "未知",

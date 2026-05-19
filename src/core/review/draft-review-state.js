@@ -92,6 +92,17 @@ export function getFillableDraftFields(state) {
     }, {});
 }
 
+export function formatReviewSourceSummary(state) {
+  const summary = state?.sourceSummary || {};
+  const sourceUrl = state?.draft?.sourceUrl || "";
+  const label = sourceLabel(summary, state?.draft?.attribution);
+
+  return [
+    label ? `来源：${label}` : "",
+    sourceUrl ? `URL: ${sourceUrl}` : "",
+  ].filter(Boolean).join("\n");
+}
+
 export function applyDraftFieldEdit(state, fieldName, value, options = {}) {
   assertDraftFieldExists(state, fieldName);
 
@@ -151,6 +162,18 @@ function isRemoved(state, fieldName) {
 
 function isFillableDraftField(fieldName) {
   return DOUBAN_FILLABLE_DRAFT_FIELDS.has(fieldName);
+}
+
+function sourceLabel(summary, fallbackAttribution) {
+  if (summary.provider === "discogs") {
+    return summary.sourceType === "master" ? "Discogs master" : "Discogs release";
+  }
+
+  if (summary.provider === "rym") {
+    return summary.releaseType ? `RYM current page / RYM ${summary.releaseType}` : "RYM current page / RYM release";
+  }
+
+  return fallbackAttribution || "";
 }
 
 function clone(value) {

@@ -23,7 +23,7 @@ export function createSourceInfo(sourceMetadata) {
     provider: sourceMetadata.provider || "discogs",
     sourceType: sourceMetadata.sourceType || "release",
     url: sourceMetadata.pageUrl || sourceMetadata.raw?.uri || "",
-    id: String(sourceMetadata.releaseId || sourceMetadata.raw?.id || ""),
+    id: String(sourceMetadata.releaseId || sourceMetadata.masterId || sourceMetadata.raw?.id || ""),
     apiUrl: sourceMetadata.apiUrl || "",
     fetchedAt: sourceMetadata.fetchedAt || new Date().toISOString(),
     extractorVersion: sourceMetadata.extractorVersion || "0.1.0",
@@ -36,7 +36,7 @@ export function createSourceInfo(sourceMetadata) {
  *
  * @typedef {Object} SourceInfo
  * @property {"discogs" | "rym"} provider
- * @property {"release" | "album"} sourceType
+ * @property {"release" | "master" | "album"} sourceType
  * @property {string} url
  * @property {string} id
  * @property {string} apiUrl

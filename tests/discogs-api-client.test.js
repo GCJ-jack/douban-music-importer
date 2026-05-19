@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { DiscogsApiError, fetchDiscogsRelease } from "../src/core/discogs-api-client.js";
+import { DiscogsApiError, fetchDiscogsMaster, fetchDiscogsRelease } from "../src/core/discogs-api-client.js";
 
 function jsonResponse(status, body, headers = {}) {
   return {
@@ -32,6 +32,23 @@ test("fetches a single Discogs release by id", async () => {
   assert.equal(calls[0].options.method, "GET");
   assert.equal(metadata.releaseId, "123456");
   assert.equal(metadata.raw.title, "Example Release");
+});
+
+test("fetches a single Discogs master by id", async () => {
+  const calls = [];
+  const metadata = await fetchDiscogsMaster("1541661", {
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      return jsonResponse(200, { id: 1541661, title: "Example Master" });
+    },
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, "https://api.discogs.com/masters/1541661");
+  assert.equal(calls[0].options.method, "GET");
+  assert.equal(metadata.sourceType, "master");
+  assert.equal(metadata.masterId, "1541661");
+  assert.equal(metadata.raw.title, "Example Master");
 });
 
 test("maps 404 responses", async () => {

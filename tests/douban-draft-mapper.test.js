@@ -17,6 +17,19 @@ function normalize(raw) {
   });
 }
 
+function normalizeMaster(raw) {
+  return normalizeDiscogsRelease({
+    provider: "discogs",
+    sourceType: "master",
+    masterId: String(raw.id || 1541661),
+    apiUrl: `https://api.discogs.com/masters/${raw.id || 1541661}`,
+    pageUrl: raw.uri || `https://www.discogs.com/master/${raw.id || 1541661}-Fixture`,
+    fetchedAt: "2026-05-10T00:00:00.000Z",
+    extractorVersion: "0.1.0",
+    raw,
+  });
+}
+
 test("maps high-priority release fields to Douban draft fields", () => {
   const draft = mapReleaseToDoubanDraft(normalize({
     id: 200,
@@ -110,4 +123,36 @@ test("preserves medium-priority fields as unmapped where practical", () => {
   assert.ok(draft.unmapped.some((field) => field.sourceField === "release.companies"));
   assert.ok(draft.unmapped.some((field) => field.sourceField === "release.identifiers"));
   assert.ok(draft.unmapped.some((field) => field.sourceField === "release.credits"));
+});
+
+test("maps Discogs master album-level fields without release-specific draft fields", () => {
+  const draft = mapReleaseToDoubanDraft(normalizeMaster({
+    id: 1541661,
+    title: "Trapped In Da 100",
+    artists: [{ name: "KirbLaGoop" }],
+    year: 2019,
+    labels: [{ name: "Should Not Import", catno: "NOPE-1" }],
+    formats: [{ name: "File", qty: "1" }],
+    genres: ["Hip Hop"],
+    styles: ["Cloud Rap"],
+    identifiers: [{ type: "Barcode", value: "1234567890123" }],
+    tracklist: [
+      { position: "1", title: "Intro" },
+      { position: "2", title: "Outro" },
+    ],
+    uri: "https://www.discogs.com/master/1541661-KirbLaGoop-Trapped-In-Da-100",
+  }));
+
+  assert.equal(draft.fields.title.value, "Trapped In Da 100");
+  assert.equal(draft.fields.artists.value, "KirbLaGoop");
+  assert.equal(draft.fields.releaseDate.value, "2019");
+  assert.equal(draft.fields.genre.value, "Hip Hop; Cloud Rap");
+  assert.equal(draft.fields.genre.needsReview, true);
+  assert.equal(draft.fields.tracks.value, "1 Intro\n2 Outro");
+  assert.match(draft.fields.externalLinks.value, /discogs\.com\/master\/1541661/);
+  assert.match(draft.attribution, /Discogs master 1541661/);
+  assert.equal(draft.fields.publisher, undefined);
+  assert.equal(draft.fields.barcode, undefined);
+  assert.equal(draft.fields.catalogNumber, undefined);
+  assert.equal(draft.fields.media, undefined);
 });

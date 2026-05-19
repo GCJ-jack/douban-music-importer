@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   applyDraftFieldEdit,
   createDraftReviewState,
+  formatReviewSourceSummary,
   getFillableDraftFields,
   listReviewFields,
   markDraftFieldConfirmed,
@@ -183,4 +184,43 @@ test("returns only confirmed, active, fillable draft fields", () => {
   assert.equal(fillable.genre, undefined);
   assert.equal(fillable.coverImageUrl, undefined);
   assert.equal(fillable.artists, undefined);
+});
+
+test("formats review source summary with provider and source type", () => {
+  const discogsRelease = createDraftReviewState({
+    draft: draft(),
+    sourceSummary: { provider: "discogs", sourceType: "release" },
+  });
+  assert.equal(
+    formatReviewSourceSummary(discogsRelease),
+    "来源：Discogs release\nURL: https://www.discogs.com/release/1-Test",
+  );
+
+  const masterDraft = {
+    ...draft(),
+    sourceUrl: "https://www.discogs.com/master/1541661-Test",
+    attribution: "Album-level metadata imported from Discogs master 1541661.",
+  };
+  const discogsMaster = createDraftReviewState({
+    draft: masterDraft,
+    sourceSummary: { provider: "discogs", sourceType: "master" },
+  });
+  assert.equal(
+    formatReviewSourceSummary(discogsMaster),
+    "来源：Discogs master\nURL: https://www.discogs.com/master/1541661-Test",
+  );
+
+  const rymDraft = {
+    ...draft(),
+    sourceUrl: "https://rateyourmusic.com/release/mixtape/artist/title/",
+    attribution: "Metadata extracted from the current Rate Your Music album page.",
+  };
+  const rym = createDraftReviewState({
+    draft: rymDraft,
+    sourceSummary: { provider: "rym", sourceType: "album", releaseType: "mixtape" },
+  });
+  assert.equal(
+    formatReviewSourceSummary(rym),
+    "来源：RYM current page / RYM mixtape\nURL: https://rateyourmusic.com/release/mixtape/artist/title/",
+  );
 });

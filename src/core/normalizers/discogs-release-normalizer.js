@@ -27,23 +27,35 @@ export function normalizeDiscogsRelease(sourceMetadata) {
     }));
   }
 
-  const labels = normalizeLabels(raw.labels);
-  const formats = normalizeFormats(raw.formats, warnings);
-  const identifiers = normalizeIdentifiers(raw.identifiers);
+  const isMaster = sourceMetadata?.sourceType === "master";
+  const labels = isMaster ? [] : normalizeLabels(raw.labels);
+  const formats = isMaster ? [] : normalizeFormats(raw.formats, warnings);
+  const identifiers = isMaster ? [] : normalizeIdentifiers(raw.identifiers);
   const tracklist = normalizeTracklist(raw.tracklist);
   const releaseDate = normalizeReleaseDate(raw, warnings);
-  const coverImage = normalizeCoverImage(raw.images);
+  const coverImage = isMaster ? undefined : normalizeCoverImage(raw.images);
   const discogsUrl = sourceMetadata.pageUrl || raw.uri || "";
+
+  if (isMaster) {
+    warnings.push(createImportWarning("Discogs master metadata is album-level; release-specific fields such as barcode, catalog number, media, and country are not auto-generated.", {
+      field: "source.sourceType",
+      level: "info",
+    }));
+    warnings.push(createImportWarning("Publisher/label may be missing on Discogs master pages and should be reviewed or filled manually if Douban requires it.", {
+      field: "release.labels",
+      level: "warning",
+    }));
+  }
 
   setField(provenance, confidence, "release.title", ["raw.title"], title ? "high" : "low");
   setField(provenance, confidence, "release.artists", ["raw.artists"], artists.length ? "high" : "low");
   setField(provenance, confidence, "release.releaseDate", dateSources(raw), releaseDate ? "high" : "low");
-  setField(provenance, confidence, "release.labels", ["raw.labels"], labels.length ? "high" : "low");
-  setField(provenance, confidence, "release.formats", ["raw.formats"], formats.length ? "high" : "low");
+  setField(provenance, confidence, "release.labels", isMaster ? [] : ["raw.labels"], labels.length ? "high" : "low");
+  setField(provenance, confidence, "release.formats", isMaster ? [] : ["raw.formats"], formats.length ? "high" : "low");
   setField(provenance, confidence, "release.genres", ["raw.genres"], Array.isArray(raw.genres) ? "high" : "low");
   setField(provenance, confidence, "release.styles", ["raw.styles"], Array.isArray(raw.styles) ? "high" : "low");
-  setField(provenance, confidence, "release.identifiers", ["raw.identifiers"], identifiers.length ? "high" : "medium");
-  setField(provenance, confidence, "release.catalogNumbers", ["raw.labels.catno"], labels.some((label) => label.catalogNumber) ? "high" : "medium");
+  setField(provenance, confidence, "release.identifiers", isMaster ? [] : ["raw.identifiers"], identifiers.length ? "high" : "medium");
+  setField(provenance, confidence, "release.catalogNumbers", isMaster ? [] : ["raw.labels.catno"], labels.some((label) => label.catalogNumber) ? "high" : "medium");
   setField(provenance, confidence, "release.tracklist", ["raw.tracklist"], tracklist.length ? "high" : "low");
   setField(provenance, confidence, "release.notes", ["raw.notes"], cleanString(raw.notes) ? "medium" : "low");
   setField(provenance, confidence, "release.coverImage", ["raw.images"], coverImage ? "medium" : "low");
@@ -56,7 +68,7 @@ export function normalizeDiscogsRelease(sourceMetadata) {
       displayTitle: title || undefined,
       artists,
       releaseDate,
-      country: cleanString(raw.country) || undefined,
+      country: isMaster ? undefined : cleanString(raw.country) || undefined,
       labels,
       companies: normalizeCompanies(raw.companies),
       formats,

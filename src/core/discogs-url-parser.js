@@ -9,6 +9,8 @@ export function parseDiscogsReleaseUrl(input) {
     return {
       supported: false,
       releaseId: null,
+      masterId: null,
+      sourceType: null,
       reason: "invalid_url",
     };
   }
@@ -18,35 +20,46 @@ export function parseDiscogsReleaseUrl(input) {
     return {
       supported: false,
       releaseId: null,
+      masterId: null,
+      sourceType: null,
       reason: "unsupported_host",
     };
   }
 
   const segments = url.pathname.split("/").filter(Boolean);
   const releaseIndex = segments.findIndex((segment) => segment.toLowerCase() === "release");
+  const masterIndex = segments.findIndex((segment) => segment.toLowerCase() === "master");
 
-  if (releaseIndex === -1 || releaseIndex === segments.length - 1) {
+  if ((releaseIndex === -1 || releaseIndex === segments.length - 1)
+    && (masterIndex === -1 || masterIndex === segments.length - 1)) {
     return {
       supported: false,
       releaseId: null,
-      reason: "not_release_page",
+      masterId: null,
+      sourceType: null,
+      reason: "not_discogs_release_or_master_page",
     };
   }
 
-  const releaseSegment = segments[releaseIndex + 1];
-  const match = releaseSegment.match(/^(\d+)(?:$|[-_])/);
+  const sourceType = releaseIndex !== -1 ? "release" : "master";
+  const idSegment = segments[(sourceType === "release" ? releaseIndex : masterIndex) + 1];
+  const match = idSegment.match(/^(\d+)(?:$|[-_])/);
 
   if (!match) {
     return {
       supported: false,
       releaseId: null,
-      reason: "missing_release_id",
+      masterId: null,
+      sourceType,
+      reason: sourceType === "release" ? "missing_release_id" : "missing_master_id",
     };
   }
 
   return {
     supported: true,
-    releaseId: match[1],
+    releaseId: sourceType === "release" ? match[1] : null,
+    masterId: sourceType === "master" ? match[1] : null,
+    sourceType,
     reason: null,
   };
 }

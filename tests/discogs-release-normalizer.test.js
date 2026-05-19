@@ -16,6 +16,19 @@ function source(raw) {
   };
 }
 
+function masterSource(raw) {
+  return {
+    provider: "discogs",
+    sourceType: "master",
+    masterId: String(raw.id || 1541661),
+    apiUrl: `https://api.discogs.com/masters/${raw.id || 1541661}`,
+    pageUrl: raw.uri || `https://www.discogs.com/master/${raw.id || 1541661}-Fixture`,
+    fetchedAt: "2026-05-10T00:00:00.000Z",
+    extractorVersion: "0.1.0",
+    raw,
+  };
+}
+
 test("normalizes a standard Discogs CD release", () => {
   const metadata = normalizeDiscogsRelease(source({
     id: 100,
@@ -102,4 +115,34 @@ test("falls back to year precision and does not require barcode", () => {
   assert.equal(metadata.release.catalogNumbers.length, 0);
   assert.equal(metadata.release.identifiers.length, 0);
   assert.equal(metadata.confidence["release.identifiers"], "medium");
+});
+
+test("normalizes Discogs master metadata as album-level source without release-specific fields", () => {
+  const metadata = normalizeDiscogsRelease(masterSource({
+    id: 1541661,
+    title: "Trapped In Da 100",
+    artists: [{ name: "KirbLaGoop" }],
+    year: 2019,
+    genres: ["Hip Hop"],
+    styles: ["Cloud Rap"],
+    labels: [{ name: "Should Not Import", catno: "NOPE-1" }],
+    formats: [{ name: "File", qty: "1" }],
+    identifiers: [{ type: "Barcode", value: "1234567890123" }],
+    country: "US",
+    tracklist: [{ position: "1", title: "Intro" }],
+    uri: "https://www.discogs.com/master/1541661-KirbLaGoop-Trapped-In-Da-100",
+  }));
+
+  assert.equal(metadata.source.sourceType, "master");
+  assert.equal(metadata.source.id, "1541661");
+  assert.equal(metadata.release.title, "Trapped In Da 100");
+  assert.deepEqual(metadata.release.releaseDate, { value: "2019", precision: "year" });
+  assert.equal(metadata.release.labels.length, 0);
+  assert.equal(metadata.release.formats.length, 0);
+  assert.equal(metadata.release.identifiers.length, 0);
+  assert.equal(metadata.release.catalogNumbers.length, 0);
+  assert.equal(metadata.release.country, undefined);
+  assert.equal(metadata.release.externalUrls[0].url, "https://www.discogs.com/master/1541661-KirbLaGoop-Trapped-In-Da-100");
+  assert.ok(metadata.warnings.some((warning) => warning.field === "source.sourceType"));
+  assert.ok(metadata.warnings.some((warning) => warning.field === "release.labels"));
 });
