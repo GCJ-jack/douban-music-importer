@@ -580,6 +580,42 @@ test("splits RYM album heading Title by Artist case-insensitively", () => {
   assert.notEqual(response.extract.title, "Tragedy by The Vehicle Birth");
 });
 
+test("uses complete heading artist when RYM EP artist link is partial", () => {
+  const document = fakeDocument({
+    selectors: {
+      ".release_title": ["Nuclear Fall: Atomic Autumn By DJ Smokey & Soudiere"],
+      "h1": ["Nuclear Fall: Atomic Autumn By DJ Smokey & Soudiere"],
+      "a[href*='/artist/']": ["DJ Smokey"],
+      ".release_info tr": ["Released 26 October 2025"],
+      ".tracklist tr": [
+        "1. It's a Nuke Posse Thang, Baby",
+        "2. Don't Worry About WTF They Be Doing",
+        "3. We Got It All (For Cheap)",
+        "Saving...",
+        "rymQ(function(){ track_ratings.init(); })",
+        "track_ratings",
+      ],
+    },
+  });
+
+  const response = extractRymCurrentPage({
+    document,
+    location: { href: "https://rateyourmusic.com/release/ep/dj-smokey-soudiere/nuclear-fall-atomic-autumn/" },
+  });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.extract.title, "Nuclear Fall: Atomic Autumn");
+  assert.equal(response.extract.artist, "DJ Smokey & Soudiere");
+  assert.equal(response.extract.releaseType, "ep");
+  assert.equal(response.extract.releaseDate, "2025-10-26");
+  assert.deepEqual(response.extract.tracks, [
+    "1 It's a Nuke Posse Thang, Baby",
+    "2 Don't Worry About WTF They Be Doing",
+    "3 We Got It All (For Cheap)",
+  ]);
+  assert.equal(response.extract.tracks.some((track) => /Saving|rymQ\(|track_ratings|lyrics|credits/i.test(track)), false);
+});
+
 test("prefers explicit album title and artist link over combined heading", () => {
   const response = extractRymCurrentPage({
     document: fakeDocument({

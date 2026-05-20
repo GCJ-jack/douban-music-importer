@@ -75,9 +75,22 @@ export function extractRymCurrentPage(options = {}) {
 
   function extractTitleArtist() {
     const artist = explicitArtist();
-    const title = firstNonEmpty(explicitTitle(), headingTitle());
+    const explicitTitleValue = explicitTitle();
+    const heading = headingTitle();
+    const title = firstNonEmpty(explicitTitleValue, heading);
     if (!title) {
       return { title: "", artist, warnings: [] };
+    }
+
+    const headingSplit = splitHeadingByArtist(heading);
+    const titleSplit = splitHeadingByArtist(title);
+    const completeHeadingSplit = headingSplit || titleSplit;
+    if (completeHeadingSplit && shouldUseHeadingSplitArtist(completeHeadingSplit.artist, artist)) {
+      return {
+        title: completeHeadingSplit.title,
+        artist: completeHeadingSplit.artist,
+        warnings: [],
+      };
     }
 
     if (artist) {
@@ -104,6 +117,42 @@ export function extractRymCurrentPage(options = {}) {
         ? [warning("title", "Could not confidently split RYM album heading into title and artist.")]
         : [],
     };
+  }
+
+  function shouldUseHeadingSplitArtist(headingArtist, domArtist) {
+    const normalizedHeadingArtist = text(headingArtist);
+    const normalizedDomArtist = text(domArtist);
+    if (!normalizedHeadingArtist) return false;
+
+    if (!normalizedDomArtist) {
+      return artistMatchesCurrentUrl(normalizedHeadingArtist);
+    }
+
+    return normalizedHeadingArtist.length > normalizedDomArtist.length &&
+      normalizedHeadingArtist.toLowerCase().includes(normalizedDomArtist.toLowerCase()) &&
+      artistMatchesCurrentUrl(normalizedHeadingArtist);
+  }
+
+  function artistMatchesCurrentUrl(artist) {
+    const url = parseUrl(locationRef?.href || "");
+    const urlArtistSlug = rymUrlArtistSlug(url);
+    if (!urlArtistSlug) return true;
+    return slugify(artist) === urlArtistSlug;
+  }
+
+  function rymUrlArtistSlug(url) {
+    const parts = url?.pathname?.split("/")?.filter(Boolean) || [];
+    return parts[0] === "release" && supportedRymReleaseTypes().includes(parts[1])
+      ? parts[2] || ""
+      : "";
+  }
+
+  function slugify(value) {
+    return text(value)
+      .toLowerCase()
+      .replace(/&/g, " ")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
   }
 
   function splitHeadingByArtist(value) {

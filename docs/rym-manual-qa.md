@@ -111,6 +111,14 @@ For each sample, record:
 - Whether the final safe-fill payload excludes review-only and unsupported
   fields.
 
+## QA Records
+
+| Case | RYM URL | Release type | Page shape | Expected fields | Observed result | Warnings | Draft safe-fill payload | Accept? | Notes |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | `https://rateyourmusic.com/release/album/charli-xcx/how-im-feeling-now/` | album | Standard album with numeric tracklist | title, artist, releaseDate, sourceUrl, full 11-track tracklist; genre review-only/unsupported | Pass after `51141d3`: title, artist, releaseDate, and sourceUrl were correct; tracklist was clean 11 lines: `1 Pink Diamond`; `2 Forever`; `3 Claws`; `4 7 Years`; `5 Detonate`; `6 Enemy`; `7 I Finally Understand`; `8 C2.0`; `9 Party 4 U`; `10 Anthems`; `11 Visions` | None blocking. Previous trailing `lyrics` link pollution / dirty-clean duplicate tracklist issue is fixed. | artists, externalLinks, releaseDate, title, tracks only | Yes | No publisher, barcode, catalogNumber, media, country, coverImageUrl, or other out-of-scope fields generated. |
+| 2 | `https://rateyourmusic.com/release/mixtape/spaceghostpurrp/veneno/` | mixtape | Long numeric mixtape tracklist | title, artist, year-precision releaseDate, sourceUrl, full 15-track tracklist; genre review-only/unsupported; releaseType review-only/unmapped | Pass: title `Veneno`, artist `SpaceGhostPurrp`, releaseDate `2015`, and sourceUrl were correct; tracklist was complete and ordered from `1 Veneno 1` through `15 Veneno 15` with no duplicates or noise. | Year precision warning is expected and acceptable. | artists, externalLinks, releaseDate, title, tracks only | Yes | Track names `Veneno 1` through `Veneno 15` were manually confirmed as correct; no publisher, barcode, catalogNumber, media, country, coverImageUrl, genre, descriptor, or releaseType entered safe fill. |
+| 3 | `https://rateyourmusic.com/release/ep/dj-smokey-soudiere/nuclear-fall-atomic-autumn/` | ep | Non-album EP with short tracklist and combined heading artist | title, artist, releaseDate, sourceUrl, full 3-track tracklist; genre review-only/unsupported; releaseType review-only/unmapped | Pass after title/artist fix: title `Nuclear Fall: Atomic Autumn`, artist `DJ Smokey & Soudiere`, releaseDate `2025-10-26`, and sourceUrl were correct; tracklist had 3 complete ordered lines with no noise. | None blocking. Previous partial artist-link extraction issue was fixed. | artists, externalLinks, releaseDate, title, tracks only | Yes | `releaseType=ep` stayed review-only/unmapped; no publisher, barcode, catalogNumber, media, country, coverImageUrl, genre, descriptor, or releaseType entered safe fill. |
+
 ## Minimum Evidence Before Closing #13
 
 Before closing #13, collect manual QA evidence for at least three real RYM pages:
