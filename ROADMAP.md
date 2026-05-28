@@ -58,6 +58,14 @@
 - 调研并原型支持 AOTY。
 - 明确访问限制、服务边界和合规风险。
 
+## v0.7
+
+方向：
+
+- 调研 Bandcamp 作为未来来源的可行性。
+- 重点评估 album / release 页面可见字段、购买/流媒体页面的数据边界、artist label 关系、tracklist、source URL 和 attribution。
+- 明确是否只能作为用户当前页面的本地解析来源，避免 network importer、后台抓取、批量请求、登录/cookie 读取、下载或复用音频/封面资源。
+
 ## v1.0
 
 方向：

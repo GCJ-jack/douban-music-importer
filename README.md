@@ -130,7 +130,7 @@ node -e "JSON.parse(require('fs').readFileSync('manifest.json','utf8')); console
 
 路线图见 [ROADMAP.md](ROADMAP.md)。
 
-RYM 和 AOTY 是后续研究目标，不属于 v0.1。
+RYM、AOTY 和 Bandcamp 是后续研究目标，不属于 v0.1。
 
 ## 贡献
 

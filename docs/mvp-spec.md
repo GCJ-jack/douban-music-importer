@@ -51,6 +51,7 @@ v0.1 不支持：
 
 - RYM 导入。
 - AOTY 导入。
+- Bandcamp 导入。
 - Discogs master 自动选择最佳 release。
 - 从 Discogs 页面 HTML 抓取核心元数据作为主路径。
 - 豆瓣重复条目自动检测。
@@ -553,6 +554,11 @@ Douban:
 
 - 调研并原型支持 AOTY。
 
+### v0.7
+
+- 调研 Bandcamp 作为未来来源的可行性。
+- 明确页面字段、访问限制、版权/资源边界和 current-page/local parsing 可行性。
+
 ### v1.0
 
 - 稳定 Discogs release 到豆瓣新条目辅助填写主流程。
@@ -679,4 +685,4 @@ v0.1 初始决策：
 - 插件不绕过审核、限流或社区规则。
 - Manifest 不申请 `cookies`、`<all_urls>`、`webRequest`。
 - 除非未来有明确需求，否则 Manifest 不申请 `tabs`。
-- RYM 和 AOTY 是未来来源，不属于 v0.1。
+- RYM、AOTY 和 Bandcamp 是未来来源，不属于 v0.1。
