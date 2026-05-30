@@ -184,6 +184,10 @@ function sourceAttribution(source) {
     return "Metadata extracted from the current Rate Your Music album page. Please review before submitting to Douban.";
   }
 
+  if (source?.provider === "aoty") {
+    return "Metadata parsed locally from user-provided Album of the Year text. Please review before submitting to Douban.";
+  }
+
   if (source?.provider === "discogs" && source?.sourceType === "master") {
     return `Album-level metadata imported from Discogs master ${source?.id || ""}. Please review before submitting to Douban.`;
   }
@@ -252,6 +256,38 @@ function collectUnmapped(unmapped, release) {
       sourceField: "release.credits",
       value: release.credits,
       reason: "Detailed credits are out of scope for v0.1 Douban draft fields.",
+    });
+  }
+
+  if (release.reviewOnly?.genres?.length) {
+    unmapped.push({
+      sourceField: "release.reviewOnly.genres",
+      value: release.reviewOnly.genres,
+      reason: "AOTY genres/tags are review-only and must not auto-fill Douban custom selects.",
+    });
+  }
+
+  if (release.reviewOnly?.labels?.length) {
+    unmapped.push({
+      sourceField: "release.reviewOnly.labels",
+      value: release.reviewOnly.labels,
+      reason: "AOTY label/publisher is review-only and must not auto-fill Douban publisher.",
+    });
+  }
+
+  if (release.reviewOnly?.formats?.length) {
+    unmapped.push({
+      sourceField: "release.reviewOnly.formats",
+      value: release.reviewOnly.formats,
+      reason: "AOTY format/media is review-only and must not auto-fill Douban custom selects.",
+    });
+  }
+
+  if (release.reviewOnly?.coverVisible) {
+    unmapped.push({
+      sourceField: "release.reviewOnly.coverVisible",
+      value: true,
+      reason: "AOTY cover visibility is review-only; do not extract or reuse cover image URLs.",
     });
   }
 }

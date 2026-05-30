@@ -173,6 +173,10 @@ function sourceLabel(summary, fallbackAttribution) {
     return summary.releaseType ? `RYM current page / RYM ${summary.releaseType}` : "RYM current page / RYM release";
   }
 
+  if (summary.provider === "aoty") {
+    return "AOTY manual paste";
+  }
+
   return fallbackAttribution || "";
 }
 
