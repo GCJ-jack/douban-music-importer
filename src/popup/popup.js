@@ -5,6 +5,12 @@ import {
   summarizeDraftReviewState,
   summarizeReviewReadiness,
 } from "../core/review/draft-review-state.js";
+import {
+  clearAotyManualPasteInputDraft,
+  isAotyAlbumUrl,
+  loadAotyManualPasteInputDraft,
+  saveAotyManualPasteInputDraft,
+} from "./aoty-manual-paste-input.js";
 
 const elements = {
   status: document.querySelector("#status"),
@@ -59,6 +65,7 @@ async function init() {
   currentPage = parseDiscogsReleaseUrl(currentUrl);
   currentRymPage = parseRymAlbumUrl(currentUrl);
 
+  await restoreAotyManualPasteInput(currentUrl);
   renderPageState(currentPage, currentRymPage);
 
   elements.importButton.addEventListener("click", () => {
@@ -87,6 +94,9 @@ async function init() {
       });
     });
   });
+
+  elements.aotySourceUrl.addEventListener("input", persistAotyManualPasteInput);
+  elements.aotyPasteText.addEventListener("input", persistAotyManualPasteInput);
 
   elements.draftFields.addEventListener("click", (event) => {
     handleDraftFieldClick(event).catch((error) => {
@@ -274,6 +284,23 @@ async function importAotyManualPaste() {
   ].filter(Boolean).join(" ");
   await loadDraftReviewState();
   elements.aotyParseButton.disabled = false;
+}
+
+async function restoreAotyManualPasteInput(tabUrl) {
+  const draft = await loadAotyManualPasteInputDraft(getSessionStorageArea());
+  elements.aotySourceUrl.value = draft.sourceUrl;
+  elements.aotyPasteText.value = draft.text;
+
+  if (!elements.aotySourceUrl.value && isAotyAlbumUrl(tabUrl)) {
+    elements.aotySourceUrl.value = tabUrl;
+  }
+}
+
+function persistAotyManualPasteInput() {
+  saveAotyManualPasteInputDraft(getSessionStorageArea(), {
+    sourceUrl: elements.aotySourceUrl.value,
+    text: elements.aotyPasteText.value,
+  });
 }
 
 async function loadDraftReviewState() {
@@ -495,8 +522,15 @@ async function clearDraft() {
     throw new Error(response?.error?.message || "清除草稿失败。");
   }
 
+  await clearAotyManualPasteInputDraft(getSessionStorageArea());
+  elements.aotySourceUrl.value = "";
+  elements.aotyPasteText.value = "";
   elements.resultMessage.textContent = "草稿预览已清除。";
   renderDraftReviewState(null);
+}
+
+function getSessionStorageArea() {
+  return globalThis.chrome?.storage?.session || null;
 }
 
 async function requestDoubanFillHandoff() {

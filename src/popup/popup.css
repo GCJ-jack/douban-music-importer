@@ -84,6 +84,13 @@ button:disabled {
   margin-bottom: 8px;
 }
 
+.manual-import-note {
+  margin: 0 0 8px;
+  color: #59615b;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .form-label {
   display: block;
   margin: 8px 0 4px;
