@@ -2,7 +2,7 @@
 
 Date: 2026-05-28
 
-Scope: AOTY first-pass research; no importer implementation, no automated requests, no crawling, no login/cookie access, no CAPTCHA or access-limit handling.
+Scope: AOTY first-pass research and follow-up scope decision; no network importer, no automated requests, no crawling, no login/cookie access, no CAPTCHA or access-limit handling.
 
 ## Summary
 
@@ -10,7 +10,9 @@ AOTY appears useful as an album-level metadata reference. Public album pages and
 
 However, AOTY is not suitable for a network importer. The public Terms of Use prohibit bots, scrapers, or automated tools without written permission, and no official API or dataset suitable for importer integration was confirmed. Public access can also show Cloudflare or HTTP 403 style access friction.
 
-Recommended first pass: manual paste / local parsing only. The user may copy visible AOTY album metadata into a local parser or manual input surface, then review and edit the resulting Douban draft before any safe-fill handoff. Do not implement an AOTY current-page DOM extractor until the policy and access-risk questions are explicitly accepted.
+Updated scope decision: proceed with a user-initiated current-page DOM extractor as the primary path, with manual paste / local parsing retained as fallback. The user must manually open an AOTY album page and click the extension before any current-page extraction runs. The extension must read only the currently visible page DOM/text in that active tab, parse locally, and then require review/edit before any safe-fill handoff.
+
+This decision accepts the additional current-page DOM-reading risk for a narrow, user-initiated prototype. It does not permit an AOTY network importer, fetching AOTY URLs, background fetching, scraping, crawling, pagination, bulk access, cookie/session reuse, login/CAPTCHA/Cloudflare bypass or handling, cover/audio download/upload/reuse, ratings/reviews/charts/comments/user-data import, or automatic Douban submission.
 
 Important product boundary: AOTY should be treated as an album-level source, not a release/version source. It should not generate barcode, catalog number, country, pressing, cover image URL, ratings, reviews, rankings, charts, comments, or user-specific data.
 
@@ -52,9 +54,9 @@ Sources reviewed:
 
 ## Architecture Fit
 
-Current downstream pipeline can be reused only if AOTY produces normalized metadata through a local/manual source:
+Current downstream pipeline can be reused if AOTY produces normalized metadata through a local current-page or manual source:
 
-`AOTY manual input -> AlbumReleaseMetadata -> DoubanMusicDraft -> review state -> fill payload -> Douban safe fill`
+`AOTY current page or manual input -> AlbumReleaseMetadata -> DoubanMusicDraft -> review state -> fill payload -> Douban safe fill`
 
 Reusable pieces:
 
@@ -73,37 +75,38 @@ Needed before any AOTY prototype:
 
 ## Recommended Prototype Path
 
-Proceed only with manual paste / local parsing for the first pass:
+Proceed with a narrow current-page extractor as the primary path:
 
 - User manually opens an AOTY album page.
-- User copies visible album metadata into a local paste/import surface.
-- Parsing happens locally from user-provided text.
+- User clicks the extension.
+- The extension reads only the current active tab's visible DOM/text after that user action.
+- Parsing happens locally from current-page content.
 - Output is a reviewable `DoubanMusicDraft`.
 - Safe-fill remains limited to existing safe text fields: title, artists, release date, tracklist, and source/reference links.
 - Genres/tags, format/media, label/publisher, and cover visibility remain review-only or unmapped.
 - Existing no-submit, no-overwrite, no-login, no-cookie, and safe-fill boundaries remain unchanged.
-- No AOTY host permission is added.
+- No AOTY host permission is added; prefer the existing `activeTab` + `scripting` model.
+- Manual paste / local parsing remains available as fallback when current-page extraction is unsupported, incomplete, or too noisy.
 
 Out of scope:
 
 - AOTY network importer.
-- AOTY current-page DOM extractor until policy risk is explicitly accepted.
-- Automated requests to `albumoftheyear.org`.
-- Scraping album, chart, list, search, user, review, comment, or pagination pages.
+- Fetching AOTY URLs or making automated requests to `albumoftheyear.org`.
+- Scraping, crawling, chart/list/search/user/review/comment access, pagination, or bulk import.
 - Login/session/cookie reuse.
-- CAPTCHA, Cloudflare, IP block, VPN, or rate-limit handling.
+- CAPTCHA, Cloudflare, IP block, VPN, login, payment, download, or rate-limit handling.
 - Background jobs, retries, pagination, or bulk import.
 - Cover or audio download/upload/reuse automation.
 - Ratings, critic scores, user scores, reviews, rankings, charts, lists, comments, or user-specific data.
 
 ## Suggested #14 Update
 
-#14 should remain open until this research is reviewed and a follow-up implementation issue is created or explicitly deferred.
+#14 is closed. #16 now carries the follow-up prototype scope.
 
 Recommended conclusion:
 
-AOTY has useful album-level metadata for draft preparation, but it should not become a network importer. Because AOTY's public terms prohibit automated tools without permission and no official API path was confirmed, the recommended first pass is manual paste / local parsing only. Keep AOTY fields conservative: title, artists, release date, tracklist, and source URL can become draft candidates after review; genres/tags, label, format, and cover visibility stay review-only or unmapped; ratings, reviews, rankings, comments, charts, barcode, catalog number, country, version metadata, and cover image URLs stay out of scope.
+AOTY has useful album-level metadata for draft preparation, but it should not become a network importer. Because AOTY's public terms prohibit bots/scrapers/automated tools without permission and no official API path was confirmed, the accepted prototype path is user-initiated current-page DOM extraction only, with manual paste / local parsing as fallback. Keep AOTY fields conservative: title, artists, release date, tracklist, and source URL can become draft candidates after review; genres/tags, label, format, and cover visibility stay review-only or unmapped; ratings, reviews, rankings, comments, charts, barcode, catalog number, country, version metadata, and cover image URLs stay out of scope.
 
-Optional follow-up issue:
+Follow-up issue:
 
-`Prototype: AOTY manual paste to Douban draft`
+`Prototype: AOTY current-page extractor to Douban draft`
