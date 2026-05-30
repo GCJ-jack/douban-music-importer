@@ -74,6 +74,43 @@ button:disabled {
   margin-top: 8px;
 }
 
+.manual-import {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #d7dad4;
+}
+
+.manual-import h2 {
+  margin-bottom: 8px;
+}
+
+.form-label {
+  display: block;
+  margin: 8px 0 4px;
+  color: #59615b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.text-input,
+.paste-input {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid #cfd4ce;
+  border-radius: 6px;
+  padding: 7px 8px;
+  background: #fff;
+  color: #1f2320;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.paste-input {
+  min-height: 112px;
+  resize: vertical;
+}
+
 .secondary-button,
 .danger-button {
   width: auto;

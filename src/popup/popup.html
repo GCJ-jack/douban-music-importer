@@ -37,6 +37,15 @@
         读取当前 RYM 页面
       </button>
 
+      <section class="manual-import" aria-labelledby="aoty-manual-title">
+        <h2 id="aoty-manual-title">AOTY 手动粘贴</h2>
+        <label class="form-label" for="aoty-source-url">AOTY album URL</label>
+        <input id="aoty-source-url" class="text-input" type="url" placeholder="https://www.albumoftheyear.org/album/...">
+        <label class="form-label" for="aoty-paste-text">可见文本或 HTML</label>
+        <textarea id="aoty-paste-text" class="paste-input" rows="6" placeholder="粘贴 AOTY 页面可见文本或 HTML"></textarea>
+        <button id="aoty-parse-button" class="action-button" type="button">解析 AOTY 粘贴内容</button>
+      </section>
+
       <section class="result" aria-live="polite">
         <p id="result-message"></p>
       </section>

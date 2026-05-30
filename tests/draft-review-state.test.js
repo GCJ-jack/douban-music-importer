@@ -223,4 +223,18 @@ test("formats review source summary with provider and source type", () => {
     formatReviewSourceSummary(rym),
     "来源：RYM current page / RYM mixtape\nURL: https://rateyourmusic.com/release/mixtape/artist/title/",
   );
+
+  const aotyDraft = {
+    ...draft(),
+    sourceUrl: "https://www.albumoftheyear.org/album/1998-kanye-west-my-beautiful-dark-twisted-fantasy.php",
+    attribution: "Metadata parsed locally from user-provided Album of the Year text.",
+  };
+  const aoty = createDraftReviewState({
+    draft: aotyDraft,
+    sourceSummary: { provider: "aoty", sourceType: "album" },
+  });
+  assert.equal(
+    formatReviewSourceSummary(aoty),
+    "来源：AOTY manual paste\nURL: https://www.albumoftheyear.org/album/1998-kanye-west-my-beautiful-dark-twisted-fantasy.php",
+  );
 });

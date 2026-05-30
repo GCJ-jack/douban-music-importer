@@ -1,4 +1,5 @@
 import { fetchDiscogsMaster, fetchDiscogsRelease, DiscogsApiError } from "../core/discogs-api-client.js";
+import { buildAotyManualPasteImport } from "../core/aoty/aoty-manual-paste-import.js";
 import { parseDiscogsReleaseUrl } from "../core/discogs-url-parser.js";
 import { mapReleaseToDoubanDraft } from "../core/mappers/douban-draft-mapper.js";
 import { normalizeDiscogsRelease } from "../core/normalizers/discogs-release-normalizer.js";
@@ -51,6 +52,13 @@ async function handleMessage(message) {
 
   if (message.type === "IMPORT_RYM_CURRENT_PAGE") {
     return importRymCurrentPage();
+  }
+
+  if (message.type === "IMPORT_AOTY_MANUAL_PASTE") {
+    return importAotyManualPaste({
+      sourceUrl: message.sourceUrl,
+      text: message.text,
+    });
   }
 
   if (message.type === "GET_RAW_SOURCE_METADATA") {
@@ -125,6 +133,22 @@ async function handleMessage(message) {
       code: "unknown_message",
       message: `Unsupported message type: ${message.type}`,
     },
+  };
+}
+
+async function importAotyManualPaste(input) {
+  const result = buildAotyManualPasteImport(input);
+
+  if (!result.ok) {
+    return result;
+  }
+
+  await saveRawSourceMetadata(result.sourceMetadata);
+  await saveDraftReviewState(result.reviewState);
+
+  return {
+    ok: true,
+    metadataSummary: result.metadataSummary,
   };
 }
 

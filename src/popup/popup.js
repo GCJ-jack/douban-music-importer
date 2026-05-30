@@ -15,6 +15,9 @@ const elements = {
   apiStatus: document.querySelector("#api-status"),
   importButton: document.querySelector("#import-button"),
   rymImportButton: document.querySelector("#rym-import-button"),
+  aotySourceUrl: document.querySelector("#aoty-source-url"),
+  aotyPasteText: document.querySelector("#aoty-paste-text"),
+  aotyParseButton: document.querySelector("#aoty-parse-button"),
   resultMessage: document.querySelector("#result-message"),
   draftReview: document.querySelector("#draft-review"),
   clearDraftButton: document.querySelector("#clear-draft-button"),
@@ -69,6 +72,15 @@ async function init() {
 
   elements.rymImportButton.addEventListener("click", () => {
     importCurrentRymPage().catch((error) => {
+      renderImportError({
+        code: "unexpected_error",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
+  });
+
+  elements.aotyParseButton.addEventListener("click", () => {
+    importAotyManualPaste().catch((error) => {
       renderImportError({
         code: "unexpected_error",
         message: error instanceof Error ? error.message : String(error),
@@ -210,6 +222,58 @@ async function importCurrentRymPage() {
   ].filter(Boolean).join(" ");
   await loadDraftReviewState();
   elements.rymImportButton.disabled = false;
+}
+
+async function importAotyManualPaste() {
+  const sourceUrl = elements.aotySourceUrl.value.trim();
+  const text = elements.aotyPasteText.value.trim();
+
+  if (!sourceUrl) {
+    renderImportError({
+      code: "invalid_aoty_input",
+      message: "请填写 AOTY album URL。",
+    });
+    return;
+  }
+
+  if (!text) {
+    renderImportError({
+      code: "invalid_aoty_input",
+      message: "请粘贴 AOTY 页面可见文本或 HTML。",
+    });
+    return;
+  }
+
+  elements.aotyParseButton.disabled = true;
+  elements.apiStatus.textContent = "解析中";
+  elements.resultMessage.textContent = "正在本地解析 AOTY 粘贴内容，不会请求 AOTY URL。";
+
+  const response = await chrome.runtime.sendMessage({
+    type: "IMPORT_AOTY_MANUAL_PASTE",
+    sourceUrl,
+    text,
+  });
+
+  if (!response?.ok) {
+    renderImportError(response?.error || {
+      code: "aoty_parse_failed",
+      message: "AOTY 粘贴内容解析失败。",
+    });
+    elements.aotyParseButton.disabled = false;
+    return;
+  }
+
+  const summary = response.metadataSummary;
+  elements.apiStatus.textContent = "已保存 AOTY manual-paste metadata";
+  elements.resultMessage.textContent = [
+    "AOTY 粘贴内容解析成功。",
+    summary.title ? `标题：${summary.title}。` : "",
+    summary.artist ? `艺人：${summary.artist}。` : "",
+    `已生成豆瓣草稿摘要：${summary.draftFieldCount} 个字段，${summary.draftNeedsReviewCount} 个需复核，${summary.draftUnmappedCount} 个未映射，${summary.warningCount} 个 warning。`,
+    summary.normalizedValid && summary.draftValid ? "Schema 校验通过。" : "Schema 校验未通过，请检查导入数据。",
+  ].filter(Boolean).join(" ");
+  await loadDraftReviewState();
+  elements.aotyParseButton.disabled = false;
 }
 
 async function loadDraftReviewState() {
@@ -486,6 +550,8 @@ function errorText(code) {
     empty_response: "空响应",
     unsupported_rym_page: "不是 RYM release 页面",
     rym_extractor_unavailable: "RYM 读取不可用",
+    invalid_aoty_input: "AOTY 输入无效",
+    aoty_parse_failed: "AOTY 解析失败",
     no_active_tab: "未找到当前活动标签页",
   };
 

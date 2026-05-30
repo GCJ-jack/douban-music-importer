@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { buildAotyManualPasteImport } from "../src/core/aoty/aoty-manual-paste-import.js";
 import { parseAotyManualPaste } from "../src/core/aoty/aoty-manual-paste-parser.js";
 import { mapReleaseToDoubanDraft } from "../src/core/mappers/douban-draft-mapper.js";
 import { normalizeAotyAlbumPaste } from "../src/core/normalizers/aoty-album-normalizer.js";
@@ -253,6 +254,58 @@ test("prefers AOTY pasted HTML JSON-LD and track table without network or DOM ac
   assert.equal(draft.fields.media, undefined);
   assert.equal(draft.fields.coverImageUrl, undefined);
   assert.deepEqual(Object.keys(fillPayload), ["title", "artists", "releaseDate", "tracks", "externalLinks"]);
+});
+
+test("builds AOTY manual paste review state summary for background flow", () => {
+  const result = buildAotyManualPasteImport({
+    sourceUrl: "https://www.albumoftheyear.org/album/1998-kanye-west-my-beautiful-dark-twisted-fantasy.php",
+    text: `
+      My Beautiful Dark Twisted Fantasy
+      by
+      Kanye West
+      Release Date
+      Nov 22, 2010
+      Track List
+      1 Dark Fantasy
+      2 Gorgeous
+    `,
+    fetchedAt: "2026-05-30T00:00:00.000Z",
+    now: "2026-05-30T00:00:00.000Z",
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.metadataSummary.provider, "aoty");
+  assert.equal(result.metadataSummary.sourceType, "album");
+  assert.equal(result.metadataSummary.title, "My Beautiful Dark Twisted Fantasy");
+  assert.equal(result.metadataSummary.artist, "Kanye West");
+  assert.equal(result.metadataSummary.normalizedValid, true);
+  assert.equal(result.metadataSummary.draftValid, true);
+  assert.ok(result.reviewState);
+  assert.equal(result.reviewState.sourceSummary.provider, "aoty");
+  assert.equal(result.reviewState.draft.fields.title.value, "My Beautiful Dark Twisted Fantasy");
+  assert.equal(result.reviewState.draft.fields.tracks.value, "1 Dark Fantasy\n2 Gorgeous");
+});
+
+test("rejects missing AOTY manual paste URL", () => {
+  const result = buildAotyManualPasteImport({
+    sourceUrl: "",
+    text: "My Beautiful Dark Twisted Fantasy",
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, "invalid_aoty_input");
+  assert.equal(result.error.message, "请填写 AOTY album URL。");
+});
+
+test("rejects missing AOTY manual paste text", () => {
+  const result = buildAotyManualPasteImport({
+    sourceUrl: "https://www.albumoftheyear.org/album/1998-kanye-west-my-beautiful-dark-twisted-fantasy.php",
+    text: "",
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, "invalid_aoty_input");
+  assert.equal(result.error.message, "请粘贴 AOTY 页面可见文本或 HTML。");
 });
 
 function pipeline(extract, sourceUrl) {
