@@ -27,6 +27,7 @@ export function createSourceInfo(sourceMetadata) {
     apiUrl: sourceMetadata.apiUrl || "",
     fetchedAt: sourceMetadata.fetchedAt || new Date().toISOString(),
     extractorVersion: sourceMetadata.extractorVersion || "0.1.0",
+    sourceMode: sourceMetadata.sourceMode || sourceMetadata.raw?.sourceMode || "",
   };
 }
 
@@ -42,6 +43,7 @@ export function createSourceInfo(sourceMetadata) {
  * @property {string} apiUrl
  * @property {string} fetchedAt
  * @property {string} extractorVersion
+ * @property {string} [sourceMode]
  *
  * @typedef {Object} ArtistCredit
  * @property {string} name

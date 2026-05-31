@@ -237,4 +237,13 @@ test("formats review source summary with provider and source type", () => {
     formatReviewSourceSummary(aoty),
     "来源：AOTY manual paste\nURL: https://www.albumoftheyear.org/album/1998-kanye-west-my-beautiful-dark-twisted-fantasy.php",
   );
+
+  const aotyCurrentPage = createDraftReviewState({
+    draft: aotyDraft,
+    sourceSummary: { provider: "aoty", sourceType: "album", sourceMode: "currentPage" },
+  });
+  assert.equal(
+    formatReviewSourceSummary(aotyCurrentPage),
+    "来源：AOTY current page\nURL: https://www.albumoftheyear.org/album/1998-kanye-west-my-beautiful-dark-twisted-fantasy.php",
+  );
 });

@@ -174,6 +174,9 @@ function sourceLabel(summary, fallbackAttribution) {
   }
 
   if (summary.provider === "aoty") {
+    if (summary.sourceMode === "currentPage") {
+      return "AOTY current page";
+    }
     return "AOTY manual paste";
   }
 

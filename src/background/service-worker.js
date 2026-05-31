@@ -1,7 +1,9 @@
 import { fetchDiscogsMaster, fetchDiscogsRelease, DiscogsApiError } from "../core/discogs-api-client.js";
+import { extractAotyCurrentPage } from "../core/aoty/aoty-current-page-extractor.js";
 import { buildAotyManualPasteImport } from "../core/aoty/aoty-manual-paste-import.js";
 import { parseDiscogsReleaseUrl } from "../core/discogs-url-parser.js";
 import { mapReleaseToDoubanDraft } from "../core/mappers/douban-draft-mapper.js";
+import { normalizeAotyAlbumPaste } from "../core/normalizers/aoty-album-normalizer.js";
 import { normalizeDiscogsRelease } from "../core/normalizers/discogs-release-normalizer.js";
 import { normalizeRymAlbumExtract } from "../core/normalizers/rym-album-normalizer.js";
 import {
@@ -52,6 +54,10 @@ async function handleMessage(message) {
 
   if (message.type === "IMPORT_RYM_CURRENT_PAGE") {
     return importRymCurrentPage();
+  }
+
+  if (message.type === "IMPORT_AOTY_CURRENT_PAGE") {
+    return importAotyCurrentPage();
   }
 
   if (message.type === "IMPORT_AOTY_MANUAL_PASTE") {
@@ -149,6 +155,109 @@ async function importAotyManualPaste(input) {
   return {
     ok: true,
     metadataSummary: result.metadataSummary,
+  };
+}
+
+async function importAotyCurrentPage() {
+  const [activeTab] = await chrome.tabs.query({
+    active: true,
+    currentWindow: true,
+  });
+
+  if (!activeTab?.id) {
+    return {
+      ok: false,
+      error: {
+        code: "no_active_tab",
+        message: "No active tab is available for AOTY extraction.",
+      },
+    };
+  }
+
+  let injection;
+  try {
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId: activeTab.id },
+      func: extractAotyCurrentPage,
+    });
+    injection = result?.result;
+  } catch (error) {
+    return {
+      ok: false,
+      error: {
+        code: "aoty_extractor_unavailable",
+        message: "Unable to read the current AOTY page. Open a supported AOTY album page and try again.",
+        details: error instanceof Error ? error.message : String(error),
+      },
+    };
+  }
+
+  if (!injection?.ok) {
+    return {
+      ok: false,
+      page: injection?.page || null,
+      error: {
+        code: injection?.code || "unsupported_aoty_page",
+        message: injection?.message || "Current page is not a supported AOTY album page.",
+      },
+      warnings: injection?.warnings || [],
+    };
+  }
+
+  const sourceMetadata = {
+    provider: "aoty",
+    sourceType: "album",
+    sourceMode: "currentPage",
+    pageUrl: injection.extract.sourceUrl,
+    extractorVersion: "0.3.0-prototype",
+    fetchedAt: new Date().toISOString(),
+    warnings: injection.warnings || [],
+    raw: injection.extract,
+  };
+
+  await saveRawSourceMetadata(sourceMetadata);
+
+  const normalizedMetadata = normalizeAotyAlbumPaste(sourceMetadata);
+  const draft = mapReleaseToDoubanDraft(normalizedMetadata);
+  const metadataValidation = validateAlbumReleaseMetadata(normalizedMetadata);
+  const draftValidation = validateDoubanMusicDraft(draft);
+  const draftSummary = summarizeDraft(draft);
+  const reviewState = createDraftReviewState({
+    draft,
+    sourceSummary: {
+      provider: sourceMetadata.provider,
+      sourceType: sourceMetadata.sourceType,
+      sourceMode: "currentPage",
+      pageUrl: sourceMetadata.pageUrl,
+      fetchedAt: sourceMetadata.fetchedAt,
+      title: sourceMetadata.raw.title || null,
+    },
+    warnings: normalizedMetadata.warnings,
+    validation: {
+      metadata: metadataValidation,
+      draft: draftValidation,
+    },
+  });
+  await saveDraftReviewState(reviewState);
+
+  return {
+    ok: true,
+    page: injection.page,
+    metadataSummary: {
+      provider: sourceMetadata.provider,
+      sourceType: sourceMetadata.sourceType,
+      sourceMode: "currentPage",
+      pageUrl: sourceMetadata.pageUrl,
+      fetchedAt: sourceMetadata.fetchedAt,
+      title: sourceMetadata.raw.title || null,
+      artist: sourceMetadata.raw.artist || null,
+      normalizedValid: metadataValidation.ok,
+      draftValid: draftValidation.ok,
+      draftFieldCount: draftSummary.fieldCount,
+      draftNeedsReviewCount: draftSummary.needsReviewCount,
+      draftUnmappedCount: draftSummary.unmappedCount,
+      warningCount: normalizedMetadata.warnings.length,
+    },
   };
 }
 

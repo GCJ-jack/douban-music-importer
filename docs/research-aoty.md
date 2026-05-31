@@ -25,8 +25,8 @@ Important product boundary: AOTY should be treated as an album-level source, not
 | Release date | yes | medium-high | Often visible in details; precision may vary. |
 | Genres/tags | yes | medium-high | Useful as review-only context; must not auto-fill Douban custom selects. |
 | Tracklist | sometimes | medium | Needs sample validation across page variants before any parser commitment. |
-| Label/publisher | yes/sometimes | medium | AOTY label is album-level context; do not auto-fill Douban publisher initially. |
-| Format/media | yes/sometimes | low-medium | AOTY format such as LP may be visible; keep review-only. |
+| Label/publisher | yes/sometimes | medium | AOTY label can become a Douban publisher candidate, but must be marked `needsReview` with non-high confidence and only safe-filled after user confirmation. |
+| Format/media | yes/sometimes | low-medium | AOTY format such as LP may be visible; keep review-only. Do not auto-fill Douban album type or media custom selects. |
 | Source URL | yes | high | AOTY album URL can be used for attribution. |
 | Cover visibility | yes | low | Do not map direct image URLs, fetch cover art, upload cover art, or reuse images. |
 | Ratings/scores | yes | high | Do not import critic/user scores into Douban draft. |
@@ -69,8 +69,9 @@ Needed before any AOTY prototype:
 
 - Add provider-specific attribution for AOTY source URLs.
 - Treat AOTY as album-centric, not release-version-centric.
-- Keep genres/tags, label, format, and cover visibility review-only or unmapped for the first pass.
-- Do not infer publisher/media/barcode/catalog/country from AOTY.
+- Map AOTY label to a conservative Douban publisher candidate only after review; it must not be high confidence and must require user confirmation before safe-fill.
+- Keep genres/tags, format, and cover visibility review-only or unmapped for the first pass.
+- Do not infer media, album type, barcode, catalog, or country from AOTY.
 - Do not import ratings, reviews, rankings, charts, comments, lists, or user-specific data.
 
 ## Recommended Prototype Path
@@ -82,8 +83,10 @@ Proceed with a narrow current-page extractor as the primary path:
 - The extension reads only the current active tab's visible DOM/text after that user action.
 - Parsing happens locally from current-page content.
 - Output is a reviewable `DoubanMusicDraft`.
-- Safe-fill remains limited to existing safe text fields: title, artists, release date, tracklist, and source/reference links.
-- Genres/tags, format/media, label/publisher, and cover visibility remain review-only or unmapped.
+- Safe-fill remains limited to existing safe text fields: title, artists, release date, tracklist, source/reference links, and reviewed AOTY label as publisher.
+- AOTY label/publisher must be `needsReview` and should use medium or lower confidence; it can enter safe-fill only after the user confirms it in review UI.
+- Genres/tags, format/media, and cover visibility remain review-only or unmapped.
+- AOTY format/media must not auto-fill Douban album type or media custom selects until a separate custom-select issue confirms stable selectors and option mapping.
 - Existing no-submit, no-overwrite, no-login, no-cookie, and safe-fill boundaries remain unchanged.
 - No AOTY host permission is added; prefer the existing `activeTab` + `scripting` model.
 - Manual paste / local parsing remains available as fallback when current-page extraction is unsupported, incomplete, or too noisy.
@@ -105,7 +108,7 @@ Out of scope:
 
 Recommended conclusion:
 
-AOTY has useful album-level metadata for draft preparation, but it should not become a network importer. Because AOTY's public terms prohibit bots/scrapers/automated tools without permission and no official API path was confirmed, the accepted prototype path is user-initiated current-page DOM extraction only, with manual paste / local parsing as fallback. Keep AOTY fields conservative: title, artists, release date, tracklist, and source URL can become draft candidates after review; genres/tags, label, format, and cover visibility stay review-only or unmapped; ratings, reviews, rankings, comments, charts, barcode, catalog number, country, version metadata, and cover image URLs stay out of scope.
+AOTY has useful album-level metadata for draft preparation, but it should not become a network importer. Because AOTY's public terms prohibit bots/scrapers/automated tools without permission and no official API path was confirmed, the accepted prototype path is user-initiated current-page DOM extraction only, with manual paste / local parsing as fallback. Keep AOTY fields conservative: title, artists, release date, tracklist, source URL, and reviewed label-as-publisher can become draft candidates after review; genres/tags, format/media, and cover visibility stay review-only or unmapped; ratings, reviews, rankings, comments, charts, barcode, catalog number, country, version metadata, and cover image URLs stay out of scope.
 
 Follow-up issue:
 

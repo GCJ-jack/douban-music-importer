@@ -19,9 +19,10 @@ export function normalizeAotyAlbumPaste(sourceMetadata) {
   const tracklist = normalizeTracklist(raw.tracks);
   const sourceUrl = cleanString(raw.sourceUrl) || cleanString(sourceMetadata.pageUrl);
   const sourceId = cleanString(raw.sourceId) || extractAotyId(sourceUrl);
+  const labelNames = cleanStringArray(raw.labels);
   const reviewOnly = {
     genres: cleanStringArray([...(raw.genres || []), ...(raw.tags || [])]),
-    labels: cleanStringArray(raw.labels),
+    labels: [],
     formats: cleanStringArray(raw.formats),
     coverVisible: Boolean(raw.coverVisible),
   };
@@ -51,14 +52,16 @@ export function normalizeAotyAlbumPaste(sourceMetadata) {
   setField(provenance, confidence, "release.artists", ["raw.artist"], artist ? "medium" : "low");
   setField(provenance, confidence, "release.releaseDate", ["raw.releaseDate"], releaseDate ? "medium" : "low");
   setField(provenance, confidence, "release.tracklist", ["raw.tracks"], tracklist.length ? "medium" : "low");
+  setField(provenance, confidence, "release.labels", ["raw.labels"], labelNames.length ? "medium" : "low");
   setField(provenance, confidence, "release.externalUrls", ["raw.sourceUrl"], sourceUrl ? "high" : "low");
-  setField(provenance, confidence, "release.reviewOnly", ["raw.genres", "raw.tags", "raw.labels", "raw.formats", "raw.coverVisible"], "medium");
+  setField(provenance, confidence, "release.reviewOnly", ["raw.genres", "raw.tags", "raw.formats", "raw.coverVisible"], "medium");
 
   return {
     schemaVersion: RELEASE_METADATA_SCHEMA_VERSION,
     source: createSourceInfo({
       provider: "aoty",
       sourceType: "album",
+      sourceMode: sourceMetadata.sourceMode || raw.sourceMode || "",
       pageUrl: sourceUrl,
       releaseId: sourceId || sourceUrl,
       extractorVersion: sourceMetadata.extractorVersion || "0.1.0-prototype",
@@ -69,7 +72,7 @@ export function normalizeAotyAlbumPaste(sourceMetadata) {
       displayTitle: title || undefined,
       artists: artist ? [{ name: artist, role: "main" }] : [],
       releaseDate,
-      labels: [],
+      labels: labelNames.map((name) => ({ name })),
       companies: [],
       formats: [],
       genres: [],

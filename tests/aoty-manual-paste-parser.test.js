@@ -85,16 +85,16 @@ test("parses sparse noisy AOTY album paste without generating track safe-fill", 
   assert.equal(draft.fields.title.value, "Cry Baby");
   assert.equal(draft.fields.artists.value, "Vince Staples");
   assert.equal(draft.fields.releaseDate.value, "2026-06-05");
+  assert.equal(draft.fields.publisher.value, "Loma Vista");
+  assert.equal(draft.fields.publisher.needsReview, true);
   assert.match(draft.fields.externalLinks.value, /albumoftheyear\.org\/album\/1792171/);
   assert.equal(draft.fields.tracks, undefined);
   assert.equal(draft.fields.genre, undefined);
   assert.equal(draft.fields.media, undefined);
-  assert.equal(draft.fields.publisher, undefined);
   assert.equal(draft.fields.coverImageUrl, undefined);
   assert.equal(draft.fields.barcode, undefined);
   assert.equal(draft.fields.catalogNumber, undefined);
-  assert.deepEqual(Object.keys(fillPayload), ["title", "artists", "releaseDate", "externalLinks"]);
-  assertUnmappedIncludes(draft, "release.reviewOnly.labels");
+  assert.deepEqual(Object.keys(fillPayload), ["title", "artists", "releaseDate", "publisher", "externalLinks"]);
   assertUnmappedIncludes(draft, "release.reviewOnly.formats");
 });
 
@@ -166,15 +166,16 @@ test("parses AOTY plain text album paste with clean tracklist safe-fill", () => 
   assert.equal(draft.fields.title.value, "My Beautiful Dark Twisted Fantasy");
   assert.equal(draft.fields.artists.value, "Kanye West");
   assert.equal(draft.fields.releaseDate.value, "2010-11-22");
+  assert.equal(draft.fields.publisher.value, "Def Jam; Roc-A-Fella");
+  assert.equal(draft.fields.publisher.needsReview, true);
   assert.equal(draft.fields.tracks.value, KANYE_TRACKS.join("\n"));
   assertNoiseAbsent(draft.fields.tracks.value);
   assert.equal(draft.fields.genre, undefined);
   assert.equal(draft.fields.media, undefined);
-  assert.equal(draft.fields.publisher, undefined);
   assert.equal(draft.fields.coverImageUrl, undefined);
   assert.equal(draft.fields.barcode, undefined);
   assert.equal(draft.fields.catalogNumber, undefined);
-  assert.deepEqual(Object.keys(fillPayload), ["title", "artists", "releaseDate", "tracks", "externalLinks"]);
+  assert.deepEqual(Object.keys(fillPayload), ["title", "artists", "releaseDate", "publisher", "tracks", "externalLinks"]);
 });
 
 test("prefers AOTY pasted HTML JSON-LD and track table without network or DOM access", () => {
@@ -248,12 +249,13 @@ test("prefers AOTY pasted HTML JSON-LD and track table without network or DOM ac
 
   const { draft, fillPayload } = pipeline(extract, sourceUrl);
   assert.equal(draft.fields.tracks.value, KANYE_TRACKS.join("\n"));
+  assert.equal(draft.fields.publisher.value, "Def Jam; Roc-A-Fella");
+  assert.equal(draft.fields.publisher.needsReview, true);
   assertNoiseAbsent(draft.fields.tracks.value);
   assert.equal(draft.fields.genre, undefined);
-  assert.equal(draft.fields.publisher, undefined);
   assert.equal(draft.fields.media, undefined);
   assert.equal(draft.fields.coverImageUrl, undefined);
-  assert.deepEqual(Object.keys(fillPayload), ["title", "artists", "releaseDate", "tracks", "externalLinks"]);
+  assert.deepEqual(Object.keys(fillPayload), ["title", "artists", "releaseDate", "publisher", "tracks", "externalLinks"]);
 });
 
 test("builds AOTY manual paste review state summary for background flow", () => {

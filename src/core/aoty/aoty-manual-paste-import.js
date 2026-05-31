@@ -26,6 +26,7 @@ export function buildAotyManualPasteImport(input = {}) {
     const sourceMetadata = {
       provider: "aoty",
       sourceType: "album",
+      sourceMode: "manualPaste",
       pageUrl: extract.sourceUrl || sourceUrl,
       extractorVersion: input.extractorVersion || "0.1.0-prototype",
       fetchedAt: input.fetchedAt || new Date().toISOString(),
@@ -42,6 +43,7 @@ export function buildAotyManualPasteImport(input = {}) {
       sourceSummary: {
         provider: sourceMetadata.provider,
         sourceType: sourceMetadata.sourceType,
+        sourceMode: "manualPaste",
         pageUrl: sourceMetadata.pageUrl,
         fetchedAt: sourceMetadata.fetchedAt,
         title: sourceMetadata.raw.title || null,

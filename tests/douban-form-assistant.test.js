@@ -87,6 +87,7 @@ test("fills only safe text inputs and textareas from fill payload", () => {
 test("does not overwrite existing values", () => {
   const document = detailedFormDocument();
   document.one("#p_27").value = "Existing title";
+  document.one("#p_50").value = "Existing publisher";
 
   const response = fillDoubanDetailedForm({
     title: draftField("New title"),
@@ -97,8 +98,9 @@ test("does not overwrite existing values", () => {
   });
 
   assert.equal(document.one("#p_27").value, "Existing title");
-  assert.deepEqual(response.result.skippedExistingValue, ["title"]);
-  assert.deepEqual(response.result.filled, ["publisher"]);
+  assert.equal(document.one("#p_50").value, "Existing publisher");
+  assert.deepEqual(response.result.skippedExistingValue, ["title", "publisher"]);
+  assert.deepEqual(response.result.filled, []);
 });
 
 test("leaves hidden system fields and submit control untouched", () => {

@@ -30,8 +30,8 @@ export function mapReleaseToDoubanDraft(metadata) {
   addField(fields, "publisher", formatLabels(release.labels), {
     sourceFields: ["release.labels"],
     confidence: confidenceFor(metadata, "release.labels"),
-    needsReview: release.labels.length > 1,
-    note: release.labels.length > 1 ? "Multiple labels were merged." : undefined,
+    needsReview: metadata.source?.provider === "aoty" || release.labels.length > 1,
+    note: publisherNote(metadata, release.labels),
   });
 
   addField(fields, "media", formatMedia(release.formats), {
@@ -141,6 +141,14 @@ function formatLabels(labels) {
   return labels.map((label) => label.name).filter(Boolean).join("; ");
 }
 
+function publisherNote(metadata, labels) {
+  if (metadata.source?.provider === "aoty" && labels.length > 0) {
+    return "AOTY label is album-level metadata; review before using as Douban publisher.";
+  }
+
+  return labels.length > 1 ? "Multiple labels were merged." : undefined;
+}
+
 function formatMedia(formats) {
   return formats
     .map((format) => {
@@ -185,6 +193,9 @@ function sourceAttribution(source) {
   }
 
   if (source?.provider === "aoty") {
+    if (source?.sourceMode === "currentPage") {
+      return "Metadata extracted from the current Album of the Year album page. Please review before submitting to Douban.";
+    }
     return "Metadata parsed locally from user-provided Album of the Year text. Please review before submitting to Douban.";
   }
 

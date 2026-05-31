@@ -5,12 +5,6 @@ import {
   summarizeDraftReviewState,
   summarizeReviewReadiness,
 } from "../core/review/draft-review-state.js";
-import {
-  clearAotyManualPasteInputDraft,
-  isAotyAlbumUrl,
-  loadAotyManualPasteInputDraft,
-  saveAotyManualPasteInputDraft,
-} from "./aoty-manual-paste-input.js";
 
 const elements = {
   status: document.querySelector("#status"),
@@ -21,9 +15,7 @@ const elements = {
   apiStatus: document.querySelector("#api-status"),
   importButton: document.querySelector("#import-button"),
   rymImportButton: document.querySelector("#rym-import-button"),
-  aotySourceUrl: document.querySelector("#aoty-source-url"),
-  aotyPasteText: document.querySelector("#aoty-paste-text"),
-  aotyParseButton: document.querySelector("#aoty-parse-button"),
+  aotyCurrentPageButton: document.querySelector("#aoty-current-page-button"),
   resultMessage: document.querySelector("#result-message"),
   draftReview: document.querySelector("#draft-review"),
   clearDraftButton: document.querySelector("#clear-draft-button"),
@@ -52,6 +44,10 @@ let currentRymPage = {
   supported: false,
   reason: "unknown",
 };
+let currentAotyPage = {
+  supported: false,
+  reason: "unknown",
+};
 
 init();
 
@@ -64,9 +60,9 @@ async function init() {
   currentUrl = activeTab?.url || "";
   currentPage = parseDiscogsReleaseUrl(currentUrl);
   currentRymPage = parseRymAlbumUrl(currentUrl);
+  currentAotyPage = parseAotyAlbumPageUrl(currentUrl);
 
-  await restoreAotyManualPasteInput(currentUrl);
-  renderPageState(currentPage, currentRymPage);
+  renderPageState(currentPage, currentRymPage, currentAotyPage);
 
   elements.importButton.addEventListener("click", () => {
     importCurrentRelease().catch((error) => {
@@ -86,17 +82,14 @@ async function init() {
     });
   });
 
-  elements.aotyParseButton.addEventListener("click", () => {
-    importAotyManualPaste().catch((error) => {
+  elements.aotyCurrentPageButton.addEventListener("click", () => {
+    importCurrentAotyPage().catch((error) => {
       renderImportError({
         code: "unexpected_error",
         message: error instanceof Error ? error.message : String(error),
       });
     });
   });
-
-  elements.aotySourceUrl.addEventListener("input", persistAotyManualPasteInput);
-  elements.aotyPasteText.addEventListener("input", persistAotyManualPasteInput);
 
   elements.draftFields.addEventListener("click", (event) => {
     handleDraftFieldClick(event).catch((error) => {
@@ -125,11 +118,12 @@ async function init() {
   await loadDraftReviewState();
 }
 
-function renderPageState(page, rymPage) {
-  const unsupportedReason = rymPage.reason !== "unsupported_host" ? rymPage.reason : page.reason;
+function renderPageState(page, rymPage, aotyPage) {
+  const unsupportedReason = firstSpecificUnsupportedReason(aotyPage, rymPage, page);
 
   elements.importButton.hidden = true;
   elements.rymImportButton.hidden = true;
+  elements.aotyCurrentPageButton.hidden = true;
   elements.releaseIdRow.hidden = true;
 
   if (page.supported) {
@@ -144,6 +138,7 @@ function renderPageState(page, rymPage) {
     elements.importButton.hidden = false;
     elements.importButton.disabled = false;
     elements.rymImportButton.disabled = true;
+    elements.aotyCurrentPageButton.disabled = true;
     return;
   }
 
@@ -156,16 +151,31 @@ function renderPageState(page, rymPage) {
     elements.importButton.disabled = true;
     elements.rymImportButton.hidden = false;
     elements.rymImportButton.disabled = false;
+    elements.aotyCurrentPageButton.disabled = true;
     return;
   }
 
-  elements.status.textContent = "请打开 Discogs release/master 或 RYM release 页面。";
+  if (aotyPage.supported) {
+    elements.status.textContent = "当前 AOTY album 页面支持读取可见信息。";
+    elements.pageSupport.textContent = "AOTY";
+    elements.pageType.textContent = "Album";
+    elements.releaseId.textContent = "-";
+    elements.apiStatus.textContent = "可读取当前页";
+    elements.importButton.disabled = true;
+    elements.rymImportButton.disabled = true;
+    elements.aotyCurrentPageButton.hidden = false;
+    elements.aotyCurrentPageButton.disabled = false;
+    return;
+  }
+
+  elements.status.textContent = "请打开 Discogs release/master、RYM release 或 AOTY album 页面。";
   elements.pageSupport.textContent = "不支持";
   elements.pageType.textContent = reasonText(unsupportedReason);
   elements.releaseId.textContent = "-";
   elements.apiStatus.textContent = "等待支持页面";
   elements.importButton.disabled = true;
   elements.rymImportButton.disabled = true;
+  elements.aotyCurrentPageButton.disabled = true;
 }
 
 async function importCurrentRelease() {
@@ -234,73 +244,35 @@ async function importCurrentRymPage() {
   elements.rymImportButton.disabled = false;
 }
 
-async function importAotyManualPaste() {
-  const sourceUrl = elements.aotySourceUrl.value.trim();
-  const text = elements.aotyPasteText.value.trim();
-
-  if (!sourceUrl) {
-    renderImportError({
-      code: "invalid_aoty_input",
-      message: "请填写 AOTY album URL。",
-    });
-    return;
-  }
-
-  if (!text) {
-    renderImportError({
-      code: "invalid_aoty_input",
-      message: "请粘贴 AOTY 页面可见文本或 HTML。",
-    });
-    return;
-  }
-
-  elements.aotyParseButton.disabled = true;
-  elements.apiStatus.textContent = "解析中";
-  elements.resultMessage.textContent = "正在本地解析 AOTY 粘贴内容，不会请求 AOTY URL。";
+async function importCurrentAotyPage() {
+  elements.aotyCurrentPageButton.disabled = true;
+  elements.apiStatus.textContent = "读取中";
+  elements.resultMessage.textContent = "正在读取当前 AOTY 页面可见信息，不会请求 AOTY URL。";
 
   const response = await chrome.runtime.sendMessage({
-    type: "IMPORT_AOTY_MANUAL_PASTE",
-    sourceUrl,
-    text,
+    type: "IMPORT_AOTY_CURRENT_PAGE",
   });
 
   if (!response?.ok) {
     renderImportError(response?.error || {
-      code: "aoty_parse_failed",
-      message: "AOTY 粘贴内容解析失败。",
+      code: "unknown_error",
+      message: "AOTY 页面读取失败。",
     });
-    elements.aotyParseButton.disabled = false;
+    elements.aotyCurrentPageButton.disabled = !currentAotyPage.supported;
     return;
   }
 
   const summary = response.metadataSummary;
-  elements.apiStatus.textContent = "已保存 AOTY manual-paste metadata";
+  elements.apiStatus.textContent = "已保存 AOTY current-page metadata";
   elements.resultMessage.textContent = [
-    "AOTY 粘贴内容解析成功。",
+    "AOTY 页面读取成功。",
     summary.title ? `标题：${summary.title}。` : "",
     summary.artist ? `艺人：${summary.artist}。` : "",
     `已生成豆瓣草稿摘要：${summary.draftFieldCount} 个字段，${summary.draftNeedsReviewCount} 个需复核，${summary.draftUnmappedCount} 个未映射，${summary.warningCount} 个 warning。`,
     summary.normalizedValid && summary.draftValid ? "Schema 校验通过。" : "Schema 校验未通过，请检查导入数据。",
   ].filter(Boolean).join(" ");
   await loadDraftReviewState();
-  elements.aotyParseButton.disabled = false;
-}
-
-async function restoreAotyManualPasteInput(tabUrl) {
-  const draft = await loadAotyManualPasteInputDraft(getSessionStorageArea());
-  elements.aotySourceUrl.value = draft.sourceUrl;
-  elements.aotyPasteText.value = draft.text;
-
-  if (!elements.aotySourceUrl.value && isAotyAlbumUrl(tabUrl)) {
-    elements.aotySourceUrl.value = tabUrl;
-  }
-}
-
-function persistAotyManualPasteInput() {
-  saveAotyManualPasteInputDraft(getSessionStorageArea(), {
-    sourceUrl: elements.aotySourceUrl.value,
-    text: elements.aotyPasteText.value,
-  });
+  elements.aotyCurrentPageButton.disabled = false;
 }
 
 async function loadDraftReviewState() {
@@ -522,15 +494,8 @@ async function clearDraft() {
     throw new Error(response?.error?.message || "清除草稿失败。");
   }
 
-  await clearAotyManualPasteInputDraft(getSessionStorageArea());
-  elements.aotySourceUrl.value = "";
-  elements.aotyPasteText.value = "";
   elements.resultMessage.textContent = "草稿预览已清除。";
   renderDraftReviewState(null);
-}
-
-function getSessionStorageArea() {
-  return globalThis.chrome?.storage?.session || null;
 }
 
 async function requestDoubanFillHandoff() {
@@ -568,6 +533,7 @@ function reasonText(reason) {
     missing_master_id: "未找到 master_id",
     not_rym_album_page: "不是 RYM album 页面",
     not_rym_release_page: "不是 RYM release 页面",
+    not_aoty_album_page: "不是 AOTY album 页面",
     unknown: "未知",
   };
 
@@ -584,6 +550,9 @@ function errorText(code) {
     empty_response: "空响应",
     unsupported_rym_page: "不是 RYM release 页面",
     rym_extractor_unavailable: "RYM 读取不可用",
+    unsupported_aoty_page: "不是 AOTY album 页面",
+    unsupported_aoty_dom: "AOTY 页面结构不支持",
+    aoty_extractor_unavailable: "AOTY 读取不可用",
     invalid_aoty_input: "AOTY 输入无效",
     aoty_parse_failed: "AOTY 解析失败",
     no_active_tab: "未找到当前活动标签页",
@@ -613,6 +582,29 @@ function parseRymAlbumUrl(input) {
   }
 
   return { supported: true, reason: "rym_release_page", releaseType };
+}
+
+function parseAotyAlbumPageUrl(input) {
+  let url;
+
+  try {
+    url = new URL(input);
+  } catch {
+    return { supported: false, reason: "invalid_url" };
+  }
+
+  if (!["albumoftheyear.org", "www.albumoftheyear.org"].includes(url.hostname.toLowerCase())) {
+    return { supported: false, reason: "unsupported_host" };
+  }
+
+  return /^\/album\/\d+-/i.test(url.pathname)
+    ? { supported: true, reason: "aoty_album_page" }
+    : { supported: false, reason: "not_aoty_album_page" };
+}
+
+function firstSpecificUnsupportedReason(...pages) {
+  const page = pages.find((item) => item.reason && item.reason !== "unsupported_host");
+  return page?.reason || "unsupported_host";
 }
 
 function fillHandoffStatusText(code) {
