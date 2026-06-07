@@ -200,7 +200,15 @@ export function extractAotyCurrentPage(options = {}) {
       }
     }
 
-    return unique(tracks);
+    const tracklistContainer = documentRef?.querySelector?.("#tracklist");
+    const orderedListTracks = all("div.trackList > ol > li", tracklistContainer)
+      .map((item, index) => {
+        const title = text(item.textContent);
+        return title && !isNoiseLine(title) ? `${index + 1} ${title}` : "";
+      })
+      .filter(Boolean);
+
+    return unique([...tracks, ...orderedListTracks]);
   }
 
   function hasCoverVisibility() {

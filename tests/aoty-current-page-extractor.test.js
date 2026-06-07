@@ -90,6 +90,31 @@ test("extracts standard AOTY album JSON-LD and track table from current page", (
   assertSafeFillBoundary(draft, fillPayload);
 });
 
+test("extracts Alucard ordered-list tracklist from the explicit AOTY tracklist container", () => {
+  const sourceUrl = "https://www.albumoftheyear.org/album/760864-diamondsonmydick-alucard.php";
+  const tracks = [
+    "tiny ass jeans",
+    "big gun",
+    "camping (feat. Cartier'God)",
+  ];
+  const response = extractAotyCurrentPage({
+    document: fakeAotyDocument({
+      canonical: sourceUrl,
+      title: "Alucard",
+      artist: "Diamondsonmydick",
+      orderedListTracks: tracks,
+    }),
+    location: { href: sourceUrl },
+  });
+
+  assert.equal(response.ok, true);
+  assert.deepEqual(response.extract.tracks, [
+    "1 tiny ass jeans",
+    "2 big gun",
+    "3 camping (feat. Cartier'God)",
+  ]);
+});
+
 test("extracts sparse noisy AOTY album page without tracklist", () => {
   const sourceUrl = "https://www.albumoftheyear.org/album/1792171-vince-staples-cry-baby.php";
   const response = extractAotyCurrentPage({
@@ -378,6 +403,15 @@ function fakeAotyDocument(options = {}) {
     const noise = options.noisyTrackCells?.[index] || ["4:40", "94", "feat. Example", "Producer Example"];
     return fakeTrackRow(position, titleParts.join(" "), noise);
   });
+  const orderedListTracks = (options.orderedListTracks || []).map((track) => fakeNode(track));
+  const orderedList = fakeNode(options.orderedListTracks?.join(" ") || "", {}, {
+    "li": orderedListTracks,
+  });
+  const tracklistContainer = fakeNode(options.orderedListTracks?.join(" ") || "", {}, {
+    "ol > li": orderedListTracks,
+    "div.trackList > ol > li": orderedListTracks,
+    "ol": options.orderedListTracks ? [orderedList] : [],
+  });
   const selectors = {
     "script[type='application/ld+json'], script[type=\"application/ld+json\"]": options.jsonLd ? [fakeNode(JSON.stringify(options.jsonLd))] : [],
     "link[rel='canonical'], link[rel=\"canonical\"]": options.canonical ? [fakeNode("", { href: options.canonical })] : [],
@@ -391,6 +425,7 @@ function fakeAotyDocument(options = {}) {
     ".details tr": detailRows,
     ".details div": detailTextRows,
     "#tracklist .trackListTable tr": trackRows,
+    "#tracklist": options.orderedListTracks ? [tracklistContainer] : [],
     ".albumArt, .albumCover, [class*='cover'], img[alt*='cover'], meta[property='og:image']": options.coverVisible ? [fakeNode("cover")] : [],
   };
   if (options.extraNoise) {
