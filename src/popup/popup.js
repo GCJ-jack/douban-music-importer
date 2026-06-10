@@ -1,4 +1,5 @@
 import { parseDiscogsReleaseUrl } from "../core/discogs-url-parser.js";
+import { parseBandcampAlbumPageUrl } from "./bandcamp-page-detection.js";
 import {
   formatReviewSourceSummary,
   listReviewFields,
@@ -16,6 +17,7 @@ const elements = {
   importButton: document.querySelector("#import-button"),
   rymImportButton: document.querySelector("#rym-import-button"),
   aotyCurrentPageButton: document.querySelector("#aoty-current-page-button"),
+  bandcampCurrentPageButton: document.querySelector("#bandcamp-current-page-button"),
   resultMessage: document.querySelector("#result-message"),
   draftReview: document.querySelector("#draft-review"),
   clearDraftButton: document.querySelector("#clear-draft-button"),
@@ -48,6 +50,10 @@ let currentAotyPage = {
   supported: false,
   reason: "unknown",
 };
+let currentBandcampPage = {
+  supported: false,
+  reason: "unknown",
+};
 
 init();
 
@@ -61,8 +67,9 @@ async function init() {
   currentPage = parseDiscogsReleaseUrl(currentUrl);
   currentRymPage = parseRymAlbumUrl(currentUrl);
   currentAotyPage = parseAotyAlbumPageUrl(currentUrl);
+  currentBandcampPage = parseBandcampAlbumPageUrl(currentUrl);
 
-  renderPageState(currentPage, currentRymPage, currentAotyPage);
+  renderPageState(currentPage, currentRymPage, currentAotyPage, currentBandcampPage);
 
   elements.importButton.addEventListener("click", () => {
     importCurrentRelease().catch((error) => {
@@ -84,6 +91,15 @@ async function init() {
 
   elements.aotyCurrentPageButton.addEventListener("click", () => {
     importCurrentAotyPage().catch((error) => {
+      renderImportError({
+        code: "unexpected_error",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
+  });
+
+  elements.bandcampCurrentPageButton.addEventListener("click", () => {
+    importCurrentBandcampPage().catch((error) => {
       renderImportError({
         code: "unexpected_error",
         message: error instanceof Error ? error.message : String(error),
@@ -118,12 +134,13 @@ async function init() {
   await loadDraftReviewState();
 }
 
-function renderPageState(page, rymPage, aotyPage) {
-  const unsupportedReason = firstSpecificUnsupportedReason(aotyPage, rymPage, page);
+function renderPageState(page, rymPage, aotyPage, bandcampPage) {
+  const unsupportedReason = firstSpecificUnsupportedReason(bandcampPage, aotyPage, rymPage, page);
 
   elements.importButton.hidden = true;
   elements.rymImportButton.hidden = true;
   elements.aotyCurrentPageButton.hidden = true;
+  elements.bandcampCurrentPageButton.hidden = true;
   elements.releaseIdRow.hidden = true;
 
   if (page.supported) {
@@ -139,6 +156,7 @@ function renderPageState(page, rymPage, aotyPage) {
     elements.importButton.disabled = false;
     elements.rymImportButton.disabled = true;
     elements.aotyCurrentPageButton.disabled = true;
+    elements.bandcampCurrentPageButton.disabled = true;
     return;
   }
 
@@ -152,6 +170,7 @@ function renderPageState(page, rymPage, aotyPage) {
     elements.rymImportButton.hidden = false;
     elements.rymImportButton.disabled = false;
     elements.aotyCurrentPageButton.disabled = true;
+    elements.bandcampCurrentPageButton.disabled = true;
     return;
   }
 
@@ -165,10 +184,25 @@ function renderPageState(page, rymPage, aotyPage) {
     elements.rymImportButton.disabled = true;
     elements.aotyCurrentPageButton.hidden = false;
     elements.aotyCurrentPageButton.disabled = false;
+    elements.bandcampCurrentPageButton.disabled = true;
     return;
   }
 
-  elements.status.textContent = "请打开 Discogs release/master、RYM release 或 AOTY album 页面。";
+  if (bandcampPage.supported) {
+    elements.status.textContent = "当前 Bandcamp album 页面支持读取可见信息。";
+    elements.pageSupport.textContent = "Bandcamp";
+    elements.pageType.textContent = "Album";
+    elements.releaseId.textContent = "-";
+    elements.apiStatus.textContent = "可读取当前页";
+    elements.importButton.disabled = true;
+    elements.rymImportButton.disabled = true;
+    elements.aotyCurrentPageButton.disabled = true;
+    elements.bandcampCurrentPageButton.hidden = false;
+    elements.bandcampCurrentPageButton.disabled = false;
+    return;
+  }
+
+  elements.status.textContent = "请打开 Discogs release/master、RYM release、AOTY album 或 Bandcamp album 页面。";
   elements.pageSupport.textContent = "不支持";
   elements.pageType.textContent = reasonText(unsupportedReason);
   elements.releaseId.textContent = "-";
@@ -176,6 +210,7 @@ function renderPageState(page, rymPage, aotyPage) {
   elements.importButton.disabled = true;
   elements.rymImportButton.disabled = true;
   elements.aotyCurrentPageButton.disabled = true;
+  elements.bandcampCurrentPageButton.disabled = true;
 }
 
 async function importCurrentRelease() {
@@ -273,6 +308,37 @@ async function importCurrentAotyPage() {
   ].filter(Boolean).join(" ");
   await loadDraftReviewState();
   elements.aotyCurrentPageButton.disabled = false;
+}
+
+async function importCurrentBandcampPage() {
+  elements.bandcampCurrentPageButton.disabled = true;
+  elements.apiStatus.textContent = "读取中";
+  elements.resultMessage.textContent = "正在读取当前 Bandcamp 页面可见信息，不会请求 Bandcamp URL。";
+
+  const response = await chrome.runtime.sendMessage({
+    type: "IMPORT_BANDCAMP_CURRENT_PAGE",
+  });
+
+  if (!response?.ok) {
+    renderImportError(response?.error || {
+      code: "unknown_error",
+      message: "Bandcamp 页面读取失败。",
+    });
+    elements.bandcampCurrentPageButton.disabled = !currentBandcampPage.supported;
+    return;
+  }
+
+  const summary = response.metadataSummary;
+  elements.apiStatus.textContent = "已保存 Bandcamp current-page metadata";
+  elements.resultMessage.textContent = [
+    "Bandcamp 页面读取成功。",
+    summary.title ? `标题：${summary.title}。` : "",
+    summary.artist ? `艺人：${summary.artist}。` : "",
+    `已生成豆瓣草稿摘要：${summary.draftFieldCount} 个字段，${summary.draftNeedsReviewCount} 个需复核，${summary.draftUnmappedCount} 个未映射，${summary.warningCount} 个 warning。`,
+    summary.normalizedValid && summary.draftValid ? "Schema 校验通过。" : "Schema 校验未通过，请检查导入数据。",
+  ].filter(Boolean).join(" ");
+  await loadDraftReviewState();
+  elements.bandcampCurrentPageButton.disabled = false;
 }
 
 async function loadDraftReviewState() {
@@ -534,6 +600,7 @@ function reasonText(reason) {
     not_rym_album_page: "不是 RYM album 页面",
     not_rym_release_page: "不是 RYM release 页面",
     not_aoty_album_page: "不是 AOTY album 页面",
+    not_bandcamp_album_page: "不是 Bandcamp album 页面",
     unknown: "未知",
   };
 
@@ -555,6 +622,9 @@ function errorText(code) {
     aoty_extractor_unavailable: "AOTY 读取不可用",
     invalid_aoty_input: "AOTY 输入无效",
     aoty_parse_failed: "AOTY 解析失败",
+    unsupported_bandcamp_page: "不是 Bandcamp album 页面",
+    unsupported_bandcamp_dom: "Bandcamp 页面结构不支持",
+    bandcamp_extractor_unavailable: "Bandcamp 读取不可用",
     no_active_tab: "未找到当前活动标签页",
   };
 

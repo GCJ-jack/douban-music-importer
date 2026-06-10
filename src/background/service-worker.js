@@ -1,6 +1,8 @@
 import { fetchDiscogsMaster, fetchDiscogsRelease, DiscogsApiError } from "../core/discogs-api-client.js";
 import { extractAotyCurrentPage } from "../core/aoty/aoty-current-page-extractor.js";
 import { buildAotyManualPasteImport } from "../core/aoty/aoty-manual-paste-import.js";
+import { buildBandcampCurrentPageImport } from "../core/bandcamp/bandcamp-current-page-import.js";
+import { extractBandcampCurrentPage } from "../core/bandcamp/bandcamp-current-page-extractor.js";
 import { parseDiscogsReleaseUrl } from "../core/discogs-url-parser.js";
 import { mapReleaseToDoubanDraft } from "../core/mappers/douban-draft-mapper.js";
 import { normalizeAotyAlbumPaste } from "../core/normalizers/aoty-album-normalizer.js";
@@ -58,6 +60,10 @@ async function handleMessage(message) {
 
   if (message.type === "IMPORT_AOTY_CURRENT_PAGE") {
     return importAotyCurrentPage();
+  }
+
+  if (message.type === "IMPORT_BANDCAMP_CURRENT_PAGE") {
+    return importBandcampCurrentPage();
   }
 
   if (message.type === "IMPORT_AOTY_MANUAL_PASTE") {
@@ -154,6 +160,55 @@ async function importAotyManualPaste(input) {
 
   return {
     ok: true,
+    metadataSummary: result.metadataSummary,
+  };
+}
+
+async function importBandcampCurrentPage() {
+  const [activeTab] = await chrome.tabs.query({
+    active: true,
+    currentWindow: true,
+  });
+
+  if (!activeTab?.id) {
+    return {
+      ok: false,
+      error: {
+        code: "no_active_tab",
+        message: "No active tab is available for Bandcamp extraction.",
+      },
+    };
+  }
+
+  let injection;
+  try {
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId: activeTab.id },
+      func: extractBandcampCurrentPage,
+    });
+    injection = result?.result;
+  } catch (error) {
+    return {
+      ok: false,
+      error: {
+        code: "bandcamp_extractor_unavailable",
+        message: "Unable to read the current Bandcamp page. Open a supported Bandcamp album page and try again.",
+        details: error instanceof Error ? error.message : String(error),
+      },
+    };
+  }
+
+  const result = buildBandcampCurrentPageImport(injection);
+  if (!result.ok) {
+    return result;
+  }
+
+  await saveRawSourceMetadata(result.sourceMetadata);
+  await saveDraftReviewState(result.reviewState);
+
+  return {
+    ok: true,
+    page: result.page,
     metadataSummary: result.metadataSummary,
   };
 }
