@@ -180,6 +180,10 @@ function sourceLabel(summary, fallbackAttribution) {
     return "AOTY manual paste";
   }
 
+  if (summary.provider === "bandcamp") {
+    return "Bandcamp current page";
+  }
+
   return fallbackAttribution || "";
 }
 

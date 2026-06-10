@@ -246,4 +246,18 @@ test("formats review source summary with provider and source type", () => {
     formatReviewSourceSummary(aotyCurrentPage),
     "来源：AOTY current page\nURL: https://www.albumoftheyear.org/album/1998-kanye-west-my-beautiful-dark-twisted-fantasy.php",
   );
+
+  const bandcampDraft = {
+    ...draft(),
+    sourceUrl: "https://xumstudios.bandcamp.com/album/dark-angels",
+    attribution: "Metadata extracted from the current Bandcamp album page.",
+  };
+  const bandcamp = createDraftReviewState({
+    draft: bandcampDraft,
+    sourceSummary: { provider: "bandcamp", sourceType: "album", sourceMode: "currentPage" },
+  });
+  assert.equal(
+    formatReviewSourceSummary(bandcamp),
+    "来源：Bandcamp current page\nURL: https://xumstudios.bandcamp.com/album/dark-angels",
+  );
 });

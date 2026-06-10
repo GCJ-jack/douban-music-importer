@@ -186,6 +186,14 @@ test("extracts Chinese AOTY details labels as review-only unmapped fields", () =
   assert.deepEqual(metadata.release.reviewOnly.genres, ["Downtempo", "IDM"]);
   assert.ok(draft.unmapped.some((field) => field.sourceField === "release.reviewOnly.formats" && field.value.includes("LP")));
   assert.ok(draft.unmapped.some((field) => field.sourceField === "release.reviewOnly.genres" && field.value.includes("Downtempo") && field.value.includes("IDM")));
+  assert.ok(draft.unmapped.some((field) =>
+    field.sourceField === "release.reviewOnly.formats" &&
+    field.reason === "AOTY format/media is review-only and must not auto-fill Douban custom selects."
+  ));
+  assert.ok(draft.unmapped.some((field) =>
+    field.sourceField === "release.reviewOnly.genres" &&
+    field.reason === "AOTY genres/tags are review-only and must not auto-fill Douban custom selects."
+  ));
   assert.equal(draft.fields.publisher.value, "Warp; Music70");
   assert.equal(draft.fields.publisher.needsReview, true);
   assert.deepEqual(Object.keys(fillPayload), ["title", "artists", "releaseDate", "publisher", "tracks", "externalLinks"]);

@@ -36,7 +36,7 @@ export function createSourceInfo(sourceMetadata) {
  * @typedef {"info" | "warning" | "error"} WarningLevel
  *
  * @typedef {Object} SourceInfo
- * @property {"discogs" | "rym" | "aoty"} provider
+ * @property {"discogs" | "rym" | "aoty" | "bandcamp"} provider
  * @property {"release" | "master" | "album"} sourceType
  * @property {string} url
  * @property {string} id
@@ -99,7 +99,7 @@ export function createSourceInfo(sourceMetadata) {
  * @property {"api" | "user"} source
  *
  * @typedef {Object} ExternalUrl
- * @property {"discogs" | "rym" | "aoty" | "official" | "other"} provider
+ * @property {"discogs" | "rym" | "aoty" | "bandcamp" | "official" | "other"} provider
  * @property {string} url
  *
  * @typedef {Object} ImportWarning

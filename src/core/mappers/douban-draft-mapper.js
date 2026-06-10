@@ -87,7 +87,7 @@ export function mapReleaseToDoubanDraft(metadata) {
     note: release.coverImage?.url ? "Cover image URL is for review/copy only; v0.1 must not upload it automatically." : undefined,
   });
 
-  collectUnmapped(unmapped, release);
+  collectUnmapped(unmapped, release, metadata.source?.provider);
 
   return {
     schemaVersion: DOUBAN_DRAFT_SCHEMA_VERSION,
@@ -188,6 +188,10 @@ function formatExternalLinks(externalUrls, fallbackUrl) {
 }
 
 function sourceAttribution(source) {
+  if (source?.provider === "bandcamp") {
+    return "Metadata extracted from the current Bandcamp album page. Please review before submitting to Douban.";
+  }
+
   if (source?.provider === "rym") {
     return "Metadata extracted from the current Rate Your Music album page. Please review before submitting to Douban.";
   }
@@ -228,7 +232,7 @@ function hasNestedTracks(tracklist) {
   return tracklist.some((track) => track.subTracks?.length || false);
 }
 
-function collectUnmapped(unmapped, release) {
+function collectUnmapped(unmapped, release, provider) {
   if (release.releaseType) {
     unmapped.push({
       sourceField: "release.releaseType",
@@ -274,7 +278,7 @@ function collectUnmapped(unmapped, release) {
     unmapped.push({
       sourceField: "release.reviewOnly.genres",
       value: release.reviewOnly.genres,
-      reason: "AOTY genres/tags are review-only and must not auto-fill Douban custom selects.",
+      reason: reviewOnlyReason(provider, "genres"),
     });
   }
 
@@ -282,7 +286,7 @@ function collectUnmapped(unmapped, release) {
     unmapped.push({
       sourceField: "release.reviewOnly.labels",
       value: release.reviewOnly.labels,
-      reason: "AOTY label/publisher is review-only and must not auto-fill Douban publisher.",
+      reason: reviewOnlyReason(provider, "labels"),
     });
   }
 
@@ -290,7 +294,7 @@ function collectUnmapped(unmapped, release) {
     unmapped.push({
       sourceField: "release.reviewOnly.formats",
       value: release.reviewOnly.formats,
-      reason: "AOTY format/media is review-only and must not auto-fill Douban custom selects.",
+      reason: reviewOnlyReason(provider, "formats"),
     });
   }
 
@@ -298,7 +302,26 @@ function collectUnmapped(unmapped, release) {
     unmapped.push({
       sourceField: "release.reviewOnly.coverVisible",
       value: true,
-      reason: "AOTY cover visibility is review-only; do not extract or reuse cover image URLs.",
+      reason: reviewOnlyReason(provider, "coverVisible"),
     });
   }
+}
+
+function reviewOnlyReason(provider, field) {
+  const reasons = {
+    aoty: {
+      genres: "AOTY genres/tags are review-only and must not auto-fill Douban custom selects.",
+      labels: "AOTY label/publisher is review-only and must not auto-fill Douban publisher.",
+      formats: "AOTY format/media is review-only and must not auto-fill Douban custom selects.",
+      coverVisible: "AOTY cover visibility is review-only; do not extract or reuse cover image URLs.",
+    },
+    bandcamp: {
+      genres: "Bandcamp tags/genres are review-only and must not auto-fill Douban custom selects.",
+      labels: "Bandcamp hosting publisher is review-only and must not auto-fill Douban publisher.",
+      formats: "Bandcamp format/media is review-only and must not auto-fill Douban custom selects.",
+      coverVisible: "Bandcamp cover visibility is review-only; do not extract or reuse cover image URLs.",
+    },
+  };
+
+  return reasons[provider]?.[field] || "Source metadata is review-only and must not enter Douban safe-fill.";
 }
