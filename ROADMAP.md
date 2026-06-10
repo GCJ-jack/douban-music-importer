@@ -16,6 +16,8 @@
 
 ## v0.2
 
+状态：RYM current-page prototype 已实现，并完成三页真实页面手动 QA。
+
 方向：
 
 - RYM current-page album extractor to Douban draft prototype。
@@ -53,12 +55,17 @@
 
 ## v0.6
 
+状态：AOTY research、manual paste fallback 和 current-page prototype 已实现。
+
 方向：
 
 - 调研并原型支持 AOTY。
 - 明确访问限制、服务边界和合规风险。
 
 ## v0.7
+
+状态：Bandcamp research 和 current-page prototype 已实现，并完成真实页面
+Chrome 手动 QA。
 
 方向：
 

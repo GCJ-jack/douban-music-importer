@@ -6,7 +6,9 @@
 
 ## 当前状态
 
-v0.1 主链路已实现，仍处于发布前验证阶段。
+v0.1 Discogs 主链路已实现，仍处于发布前验证阶段。RYM、AOTY 和
+Bandcamp current-page album extractor prototype 也已接入现有 review 和
+Douban safe-fill 流程。
 
 当前已支持：
 
@@ -18,6 +20,8 @@ v0.1 主链路已实现，仍处于发布前验证阶段。
 - 识别豆瓣音乐新条目的查询/消重页和详细表单页。
 - 只在用户已经打开的豆瓣详细表单上填写安全的文本输入和 textarea 字段。
 - 默认不覆盖豆瓣表单已有值。
+- 用户主动点击后，读取当前已打开的 RYM release、AOTY album 或 Bandcamp
+  album 页面可见 DOM / JSON-LD，并在本地生成草稿。
 
 详细执行基线见 [docs/mvp-spec.md](docs/mvp-spec.md)。
 
@@ -94,6 +98,9 @@ Discogs 数据只作为草稿来源。写入豆瓣前，字段必须经过 revie
 
 - `storage`：保存当前导入的 raw metadata、review draft 和临时状态。默认使用浏览器本地/session storage，不上传、不同步。
 - `activeTab`：用户打开 popup 时读取当前活动标签页，用于识别当前 Discogs release 或将已确认 payload 发送到当前豆瓣详细表单。
+- `scripting`：仅在用户点击 current-page 读取按钮后，对当前活动的 RYM、
+  AOTY 或 Bandcamp 页面执行一次本地 extractor；不授予这些来源的 host
+  permission。
 - `https://www.discogs.com/*` / `https://discogs.com/*`：识别用户当前打开的 Discogs release 页面。
 - `https://api.discogs.com/*`：请求用户当前 release 对应的单个 Discogs 官方 API endpoint。
 - `https://music.douban.com/new_subject*`：只在用户打开的豆瓣音乐新条目页面上检测和辅助填写。
@@ -130,7 +137,9 @@ node -e "JSON.parse(require('fs').readFileSync('manifest.json','utf8')); console
 
 路线图见 [ROADMAP.md](ROADMAP.md)。
 
-RYM、AOTY 和 Bandcamp 是后续研究目标，不属于 v0.1。
+RYM、AOTY 和 Bandcamp current-page prototype 是 v0.1 之外的实验性来源。
+它们只读取用户主动打开的当前页，不 fetch 来源 URL，也不新增来源 host
+permission。
 
 ## 贡献
 

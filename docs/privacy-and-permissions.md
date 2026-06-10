@@ -8,6 +8,9 @@
 
 - `storage`：保存当前导入流程需要的 raw metadata、review draft 和临时状态。数据只保存在用户浏览器本地或 session storage，不上传、不同步。
 - `activeTab`：用户打开 popup 后读取当前活动页 URL，并在用户确认后向当前活动豆瓣详细表单发送填写请求。
+- `scripting`：仅在用户点击 current-page 读取按钮后，对当前活动的 RYM、
+  AOTY 或 Bandcamp 页面执行一次本地 extractor。不会自动运行，不授予这些
+  来源的 host permission。
 - `https://www.discogs.com/*` / `https://discogs.com/*`：识别用户当前打开的 Discogs release 页面。
 - `https://api.discogs.com/*`：请求当前 release ID 对应的单个 Discogs 官方 API endpoint。
 - `https://music.douban.com/new_subject*`：在用户已经打开的豆瓣音乐新条目页面上检测页面状态和辅助填写。
@@ -47,6 +50,11 @@ v0.1 不应申请：
 - 不自动上传、下载或替换封面。
 - 不默认覆盖豆瓣表单已有值。
 - 不收集、上传或同步用户数据。
+- RYM、AOTY 和 Bandcamp current-page extractor 不 fetch 来源页面、不读取
+  cookies / localStorage / sessionStorage、不保存完整 HTML。
+- Bandcamp extractor 不导入或保存 commerce、price、offers、merch、audio、
+  stream、download、cover/image URL、comments、supporters、sponsors、
+  recommendations 或用户/account 数据。
 
 ## 表单填写规则
 

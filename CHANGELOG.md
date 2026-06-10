@@ -14,6 +14,9 @@
 - Session-first draft review storage.
 - Douban new-subject lookup/detail page detection.
 - Safe assisted filling for supported text input / textarea fields on the detailed form.
+- User-initiated RYM, AOTY, and Bandcamp current-page album extractors using
+  the existing review and safe-fill flow.
+- AOTY manual paste fallback.
 - v0.1 regression fixtures and tests.
 - Privacy, permissions, contribution, security, roadmap, and release checklist documentation.
 
@@ -28,3 +31,6 @@
 - No automatic cover upload.
 - No default overwrite of existing Douban fields.
 - No custom select autofill in v0.1.
+- No RYM, AOTY, or Bandcamp network importer or source host permission.
+- No Bandcamp commerce, audio, cover URL, recommendation, comment, supporter,
+  or user/account data import.

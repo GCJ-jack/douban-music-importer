@@ -4,6 +4,10 @@ Date: 2026-05-28
 
 Scope: Bandcamp first-pass research; no importer implementation, no network importer, no crawling, no bulk access, no login/cookie access, no payment/download handling, and no cover/audio reuse.
 
+Implementation follow-up: GitHub issue #17 implements the recommended
+user-initiated current-page-only prototype. See
+[`bandcamp-manual-qa.md`](bandcamp-manual-qa.md) for closing evidence.
+
 ## Summary
 
 Bandcamp has useful album-level and artist-or-label-hosted metadata for future Douban draft preparation. Public album pages commonly expose album title, artist, release date, tracklist, tags, source URL, visible cover art, and purchase or media-format context.
@@ -104,7 +108,7 @@ Out of scope:
 
 ## Suggested #15 Update
 
-#15 should remain open until this research is reviewed and a follow-up implementation issue is created or explicitly deferred.
+#15 research produced follow-up implementation issue #17.
 
 Recommended conclusion:
 
